@@ -1,17 +1,48 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type BrowserContext,
+  type Page,
+  type TestInfo,
+} from "@playwright/test";
 
-const username = "family@example.test";
-const password = "fictional-passphrase";
-const token = "fictional-upstream-token";
-const rawIds = ["learner-nova", "course-orbit", "video-moonlight"];
+import {
+  E2E_FORBIDDEN_BROWSER_VALUES,
+  E2E_USERS,
+  FICTIONAL_PASSWORD,
+} from "../fixtures/upstream";
 
-async function signIn(page: Page) {
-  await page.goto("/login");
+const appOrigin = "http://localhost:3100";
+const expiryOrigin = "http://localhost:3101";
+
+function flowUser(name: string) {
+  return `flow-${name}@example.test`;
+}
+
+async function signIn(
+  page: Page,
+  username: string,
+  testInfo: TestInfo,
+  origin = appOrigin,
+) {
+  await page.setExtraHTTPHeaders({
+    "x-forwarded-for": `${testInfo.project.name}-${username}`,
+  });
+  await page.goto(`${origin}/login`);
   await page.getByLabel("Email or username").fill(username);
-  await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.getByLabel("Password", { exact: true }).fill(FICTIONAL_PASSWORD);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page).toHaveURL(/\/learners$/);
+}
+
+async function signInSuccessfully(
+  page: Page,
+  username: string,
+  testInfo: TestInfo,
+  origin = appOrigin,
+) {
+  await signIn(page, username, testInfo, origin);
+  await expect(page).toHaveURL(`${origin}/learners`);
 }
 
 async function expectNoSeriousA11yIssues(page: Page) {
@@ -23,79 +54,326 @@ async function expectNoSeriousA11yIssues(page: Page) {
   ).toEqual([]);
 }
 
-test("protects pages and supports the catalog-only flow", async ({ page }) => {
+async function firstLearnerHref(page: Page) {
+  const href = await page
+    .getByRole("link", { name: /Open course/ })
+    .first()
+    .getAttribute("href");
+  expect(href).toMatch(/^\/learn\/[A-Za-z0-9_-]+$/);
+  return href!;
+}
+
+async function assertNoHorizontalOverflow(page: Page) {
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document.documentElement.scrollWidth <=
+          document.documentElement.clientWidth,
+      ),
+    )
+    .toBe(true);
+}
+
+async function stressLocalizedLayout(page: Page) {
+  await page.evaluate(() => {
+    document.documentElement.dir = "rtl";
+    const walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_TEXT,
+    );
+    let node = walker.nextNode();
+    while (node) {
+      const value = node.textContent?.trim();
+      if (value)
+        node.textContent = `${node.textContent} ${value.slice(0, Math.ceil(value.length * 0.4))}`;
+      node = walker.nextNode();
+    }
+  });
+  await assertNoHorizontalOverflow(page);
+}
+
+async function disableBroadcastChannel(context: BrowserContext) {
+  await context.addInitScript(() => {
+    Reflect.deleteProperty(window, "BroadcastChannel");
+  });
+}
+
+async function signOut(page: Page) {
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/login\?reason=signed-out$/);
+}
+
+test("protects routes and supports valid catalog navigation", async ({
+  page,
+}, testInfo) => {
   await page.goto("/learners");
   await expect(page).toHaveURL(/\/login\?reason=expired$/);
-  await signIn(page);
+  await page.goto("/learn/arbitrary-alias");
+  await expect(page).toHaveURL(/\/login\?reason=expired$/);
+
+  await signInSuccessfully(page, flowUser("catalog-navigation"), testInfo);
   await expect(
     page.getByRole("heading", { name: "Who is learning today?" }),
   ).toBeVisible();
   await page.reload();
-  await page.getByRole("link", { name: /Nova/ }).click();
+  const learnerHref = await firstLearnerHref(page);
+  await page.goto(learnerHref);
   await expect(
     page.getByRole("heading", { name: "Nova's catalog" }),
   ).toBeVisible();
   await expect(page.getByText("There are no listen items")).toBeVisible();
-  await page.getByRole("link", { name: /Moonlight Story/ }).click();
+  await page.reload();
+  const mediaHref = await page
+    .getByRole("link", { name: /Moonlight Story/ })
+    .getAttribute("href");
+  expect(mediaHref).toMatch(/^\/learn\/[A-Za-z0-9_-]+\/media\/[A-Za-z0-9_-]+$/);
+  await page.goto(mediaHref!);
   await expect(
     page.getByText("Playback is not available in this version."),
   ).toBeVisible();
+  await page.goBack();
+  await expect(
+    page.getByRole("heading", { name: "Nova's catalog" }),
+  ).toBeVisible();
+  await page.goForward();
+  await expect(
+    page.getByRole("heading", { name: "Moonlight Story" }),
+  ).toBeVisible();
 
-  const browserData = await page.evaluate(() => ({
-    html: document.documentElement.innerHTML,
-    local: JSON.stringify(localStorage),
-    session: JSON.stringify(sessionStorage),
-  }));
-  for (const secret of [password, token, ...rawIds]) {
-    expect(JSON.stringify(browserData)).not.toContain(secret);
-  }
   const protectedResponse = await page.request.get("/learners");
   expect(protectedResponse.headers()["cache-control"]).toContain("no-store");
 });
 
-test("rejects stale and raw deep links", async ({ page }) => {
-  await signIn(page);
+test("supports multiple learners and never keeps the prior catalog", async ({
+  page,
+}, testInfo) => {
+  await signInSuccessfully(page, E2E_USERS.multipleLearners, testInfo);
+  const nova = page.getByRole("link", { name: /Nova/ });
+  const milo = page.getByRole("link", { name: /Milo/ });
+  await expect(nova).toBeVisible();
+  await expect(milo).toBeVisible();
+  await nova.click();
+  await expect(
+    page.getByRole("heading", { name: "Nova's catalog" }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Switch learner" }).click();
+  await milo.click();
+  await expect(
+    page.getByRole("heading", { name: "Milo's catalog" }),
+  ).toBeVisible();
+  await expect(page.getByText("Moonlight Story")).toHaveCount(0);
+  await page.getByRole("link", { name: /Rain Rhythm/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Rain Rhythm" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Playback is not available in this version."),
+  ).toBeVisible();
+});
+
+test("handles empty, malformed, mismatched, and unavailable catalogs", async ({
+  page,
+}, testInfo) => {
+  await signInSuccessfully(page, E2E_USERS.noLearners, testInfo);
+  await expect(
+    page.getByRole("heading", { name: "No learners are available" }),
+  ).toBeVisible();
+  await signOut(page);
+
+  await signInSuccessfully(page, E2E_USERS.emptyCatalog, testInfo);
+  await page.getByRole("link", { name: /Nova/ }).click();
+  await expect(page.getByText("There are no listen items")).toBeVisible();
+  await expect(page.getByText("There are no watch items")).toBeVisible();
+  await signOut(page);
+
+  for (const username of [
+    E2E_USERS.malformedCatalog,
+    E2E_USERS.mismatchedCourse,
+    E2E_USERS.serviceError,
+  ]) {
+    await signIn(page, username, testInfo);
+    await expect(
+      page.getByText("Sign-in is temporarily unavailable."),
+    ).toBeVisible();
+  }
+  await signIn(page, E2E_USERS.rejected, testInfo);
+  await expect(page.getByText("Sign-in was not accepted.")).toBeVisible();
+});
+
+test("rejects raw, wrong-owner, removed, and stale aliases", async ({
+  page,
+}, testInfo) => {
+  await signInSuccessfully(page, E2E_USERS.multipleLearners, testInfo);
+  const learnerLinks = page.getByRole("link", { name: /Open course/ });
+  const firstLearner = (await learnerLinks.nth(0).getAttribute("href"))!;
+  const secondLearner = (await learnerLinks.nth(1).getAttribute("href"))!;
+  await page.goto(firstLearner);
+  const firstMedia = (await page
+    .getByRole("link", { name: /Moonlight Story/ })
+    .getAttribute("href"))!;
+  const mediaAlias = firstMedia.split("/").at(-1)!;
+  await page.goto(`${secondLearner}/media/${mediaAlias}`);
+  await expect(
+    page.getByRole("heading", { name: "This catalog item cannot be opened" }),
+  ).toBeVisible();
   await page.goto("/learn/learner-nova");
   await expect(
     page.getByRole("heading", { name: "This catalog item cannot be opened" }),
   ).toBeVisible();
-  await page.goto("/learn/missing/media/video-moonlight");
+
+  const logout = await page.request.post("/api/auth/logout", {
+    headers: { Origin: appOrigin },
+  });
+  expect(logout.ok()).toBe(true);
+  await signInSuccessfully(page, flowUser("replacement-session"), testInfo);
+  await page.goto(firstMedia);
   await expect(
     page.getByRole("heading", { name: "This catalog item cannot be opened" }),
   ).toBeVisible();
 });
 
-test("logs out locally, invalidates Back, and coordinates tabs", async ({
+test("expires sessions and prevents Back from restoring protected content", async ({
+  page,
+}, testInfo) => {
+  await signInSuccessfully(page, flowUser("expiry"), testInfo, expiryOrigin);
+  await expect(
+    page.getByRole("heading", { name: "Who is learning today?" }),
+  ).toBeVisible();
+  await page.waitForTimeout(1_100);
+  await page.reload();
+  await expect(page).toHaveURL(`${expiryOrigin}/login?reason=expired`);
+  await page.goBack();
+  await expect(
+    page.getByRole("heading", { name: "Who is learning today?" }),
+  ).toHaveCount(0);
+  await page.goForward();
+  await expect(page).toHaveURL(`${expiryOrigin}/login?reason=expired`);
+});
+
+test("logs out idempotently and coordinates tabs without BroadcastChannel", async ({
   page,
   context,
-}) => {
-  await signIn(page);
+}, testInfo) => {
+  await disableBroadcastChannel(context);
+  await signInSuccessfully(page, flowUser("cross-tab-logout"), testInfo);
   const otherTab = await context.newPage();
-  await otherTab.goto("/learners");
-  await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page).toHaveURL(/\/login\?reason=signed-out$/);
+  const learnerHref = await firstLearnerHref(page);
+  await otherTab.goto(learnerHref);
+  await signOut(page);
   await expect(otherTab).toHaveURL(/\/login\?reason=signed-out$/);
   await page.goBack();
-  await expect(page).not.toHaveURL(/\/learners$/);
-  await page.goto("/learners");
-  await expect(page).toHaveURL(/\/login\?reason=expired$/);
+  await expect(
+    page.getByRole("heading", { name: "Who is learning today?" }),
+  ).toHaveCount(0);
+  await page.goForward();
+  await expect(page).toHaveURL(/\/login\?reason=signed-out$/);
   const repeated = await page.request.post("/api/auth/logout", {
-    headers: { Origin: "http://localhost:3100" },
+    headers: { Origin: appOrigin },
   });
   expect(repeated.ok()).toBe(true);
 });
 
-test("has no serious accessibility violations in primary states", async ({
+test("keeps secrets and upstream identifiers out of browser-visible data", async ({
   page,
-}) => {
+}, testInfo) => {
+  const responseBodies: string[] = [];
+  const consoleOutput: string[] = [];
+  const responseReads: Promise<void>[] = [];
+  page.on("console", (message) => consoleOutput.push(message.text()));
+  page.on("requestfinished", (request) => {
+    if (!request.url().startsWith(appOrigin)) return;
+    responseReads.push(
+      request
+        .response()
+        .then((response) => response?.text())
+        .then((body) => {
+          if (body) responseBodies.push(body);
+        })
+        .catch(() => undefined),
+    );
+  });
+
+  await signInSuccessfully(page, flowUser("privacy-boundary"), testInfo);
+  await page.getByRole("link", { name: /Nova/ }).click();
+  await page.getByRole("link", { name: /Moonlight Story/ }).click();
+  await Promise.all(responseReads);
+  const storage = await page.evaluate(() => ({
+    html: document.documentElement.innerHTML,
+    local: Array.from({ length: localStorage.length }, (_, index) => {
+      const key = localStorage.key(index)!;
+      return [key, localStorage.getItem(key)];
+    }),
+    session: Array.from({ length: sessionStorage.length }, (_, index) => {
+      const key = sessionStorage.key(index)!;
+      return [key, sessionStorage.getItem(key)];
+    }),
+  }));
+  const cookies = await page.context().cookies();
+  expect(cookies).toHaveLength(1);
+  expect(cookies[0]).toMatchObject({
+    httpOnly: true,
+    name: "merriloop_session",
+    sameSite: "Lax",
+  });
+  const ledger = await page.request.get(
+    "http://127.0.0.1:4100/__fixture__/ledger",
+  );
+  expect(ledger.ok()).toBe(true);
+  const visibleData = JSON.stringify({
+    consoleOutput,
+    cookies,
+    responseBodies,
+    storage,
+    ledger: await ledger.json(),
+  });
+  for (const forbidden of E2E_FORBIDDEN_BROWSER_VALUES) {
+    expect(visibleData).not.toContain(forbidden);
+  }
+});
+
+test("has no serious accessibility violations in required states", async ({
+  page,
+}, testInfo) => {
   await page.goto("/login");
   await expectNoSeriousA11yIssues(page);
-  await signIn(page);
+  await signIn(page, E2E_USERS.rejected, testInfo);
+  await expectNoSeriousA11yIssues(page);
+  await signInSuccessfully(page, E2E_USERS.noLearners, testInfo);
+  await expectNoSeriousA11yIssues(page);
+  await signOut(page);
+  await expectNoSeriousA11yIssues(page);
+
+  await signInSuccessfully(page, E2E_USERS.emptyCatalog, testInfo);
   await expectNoSeriousA11yIssues(page);
   await page.getByRole("link", { name: /Nova/ }).click();
   await expectNoSeriousA11yIssues(page);
-  await page.getByRole("link", { name: /Moonlight Story/ }).click();
-  await expectNoSeriousA11yIssues(page);
   await page.goto("/learn/missing");
   await expectNoSeriousA11yIssues(page);
+});
+
+test("survives expanded copy and RTL without essential overflow", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/login");
+  await stressLocalizedLayout(page);
+  await expect(page.getByRole("button", { name: /Sign in/ })).toBeVisible();
+
+  await signInSuccessfully(page, E2E_USERS.longCatalog, testInfo);
+  const learnerHref = await firstLearnerHref(page);
+  await stressLocalizedLayout(page);
+  await expect(page.getByRole("button", { name: /Sign out/ })).toBeVisible();
+
+  await page.goto(learnerHref);
+  const mediaHref = (await page
+    .getByRole("link", { name: /Story beyond/ })
+    .getAttribute("href"))!;
+  await stressLocalizedLayout(page);
+  await expect(page.getByRole("link", { name: /All learners/ })).toBeVisible();
+
+  await page.goto(mediaHref);
+  await stressLocalizedLayout(page);
+  await expect(
+    page.getByRole("link", { name: /Back to catalog/ }),
+  ).toBeVisible();
 });

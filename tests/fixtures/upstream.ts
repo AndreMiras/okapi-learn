@@ -8,6 +8,41 @@ import type { AddressInfo } from "node:net";
 export const FICTIONAL_USERNAME = "family@example.test";
 export const FICTIONAL_PASSWORD = "fictional-passphrase";
 export const FICTIONAL_TOKEN = "fictional-upstream-token";
+export const E2E_FORBIDDEN_BROWSER_VALUES = Object.freeze([
+  FICTIONAL_PASSWORD,
+  FICTIONAL_TOKEN,
+  "learner-nova",
+  "learner-milo",
+  "course-orbit",
+  "course-garden",
+  "video-moonlight",
+  "audio-rain",
+  "Fictional-Surname",
+  "2017-01-01",
+  "private-learner-id-that-must-be-dropped",
+  "media.example.test",
+  "images.example.test",
+  "games.example.test",
+]);
+
+export const E2E_USERS = Object.freeze({
+  emptyCatalog: "empty-catalog@example.test",
+  longCatalog: "long-catalog@example.test",
+  malformedCatalog: "malformed-catalog@example.test",
+  mismatchedCourse: "mismatched-course@example.test",
+  multipleLearners: "multiple-learners@example.test",
+  noLearners: "no-learners@example.test",
+  rejected: "rejected@example.test",
+  serviceError: "service-error@example.test",
+  success: FICTIONAL_USERNAME,
+});
+
+function isE2EUsername(value: string): boolean {
+  return (
+    (Object.values(E2E_USERS) as readonly string[]).includes(value) ||
+    /^flow-[a-z0-9-]+@example\.test$/.test(value)
+  );
+}
 
 export type FixtureScenario =
   | "disconnect"
@@ -18,6 +53,7 @@ export type FixtureScenario =
   | "rejected"
   | "server-error"
   | "success"
+  | "by-username"
   | "timeout"
   | "wrong-content-type";
 
@@ -73,6 +109,89 @@ export function syntheticAuthenticationResponse() {
   };
 }
 
+function responseForUsername(username: string): unknown {
+  const base = syntheticAuthenticationResponse();
+  if (username === E2E_USERS.noLearners) {
+    return { ...base, Courses: [], Students: [] };
+  }
+  if (username === E2E_USERS.emptyCatalog) {
+    return {
+      ...base,
+      Courses: [{ ...base.Courses[0], Audios: [], Videos: [] }],
+    };
+  }
+  if (username === E2E_USERS.multipleLearners) {
+    return {
+      ...base,
+      Courses: [
+        base.Courses[0],
+        {
+          Audios: [
+            {
+              AudioId: "audio-rain",
+              Description: null,
+              Duration: "01:05",
+              Orden: 1,
+              Title: "Rain Rhythm",
+              UrlAudio: null,
+            },
+          ],
+          CourseId: "course-garden",
+          Name: "Garden English",
+          Videos: [],
+        },
+      ],
+      Students: [
+        base.Students[0],
+        {
+          CourseId: "course-garden",
+          Name: "Milo",
+          StudentId: "learner-milo",
+        },
+      ],
+    };
+  }
+  if (username === E2E_USERS.longCatalog) {
+    return {
+      ...base,
+      Courses: [
+        {
+          ...base.Courses[0],
+          Name: `Course ${"constellation ".repeat(10)}`.trim(),
+          Videos: [
+            {
+              ...base.Courses[0]!.Videos[0],
+              Description:
+                `A fictional description ${"with generous detail ".repeat(20)}`.trim(),
+              Title:
+                `Story ${"beyond the brightest horizon ".repeat(8)}`.trim(),
+            },
+          ],
+        },
+      ],
+      Students: [
+        {
+          ...base.Students[0],
+          Name: `Nova ${"Starfinder ".repeat(8)}`.trim(),
+        },
+      ],
+    };
+  }
+  if (username === E2E_USERS.mismatchedCourse) {
+    return {
+      ...base,
+      Students: [{ ...base.Students[0], CourseId: "course-missing" }],
+    };
+  }
+  if (username === E2E_USERS.malformedCatalog) {
+    return {
+      ...base,
+      Courses: [{ ...base.Courses[0], Videos: "not-an-array" }],
+    };
+  }
+  return base;
+}
+
 async function readJson(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(Buffer.from(chunk));
@@ -103,6 +222,9 @@ export async function startSyntheticUpstream(
 ) {
   const ledger: LedgerEntry[] = [];
   const server = createServer(async (request, response) => {
+    if (request.method === "GET" && request.url === "/__fixture__/ledger") {
+      return respond(response, 200, JSON.stringify(ledger));
+    }
     const body = await readJson(request);
     const fieldNames =
       body && typeof body === "object" ? Object.keys(body).sort() : [];
@@ -112,7 +234,10 @@ export async function startSyntheticUpstream(
       typeof body === "object" &&
       !Array.isArray(body) &&
       Object.keys(body).length === 3 &&
-      (body as Record<string, unknown>).Username === FICTIONAL_USERNAME &&
+      typeof (body as Record<string, unknown>).Username === "string" &&
+      (scenario === "by-username"
+        ? isE2EUsername((body as Record<string, unknown>).Username as string)
+        : (body as Record<string, unknown>).Username === FICTIONAL_USERNAME) &&
       (body as Record<string, unknown>).PasswordHash === FICTIONAL_PASSWORD &&
       (body as Record<string, unknown>).isTablet === false;
     const acceptedLogout =
@@ -150,6 +275,18 @@ export async function startSyntheticUpstream(
       return;
     }
     if (acceptedLogout) return respond(response, 200, "{}");
+
+    const username = (body as Record<string, string>).Username;
+    if (scenario === "by-username") {
+      if (username === E2E_USERS.rejected) return respond(response, 401, "{}");
+      if (username === E2E_USERS.serviceError)
+        return respond(response, 500, "{}");
+      return respond(
+        response,
+        200,
+        JSON.stringify(responseForUsername(username)),
+      );
+    }
 
     if (scenario === "disconnect") {
       request.socket.destroy();

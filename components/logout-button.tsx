@@ -17,6 +17,7 @@ function announceLogout() {
 
 export function LogoutButton() {
   const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const channel =
@@ -37,22 +38,31 @@ export function LogoutButton() {
   async function signOut() {
     if (pending) return;
     setPending(true);
+    setError(null);
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
-    } finally {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) throw new Error("logout_failed");
       announceLogout();
       window.location.replace("/login?reason=signed-out");
+    } catch {
+      setError("Sign out could not be completed. Please try again.");
+      setPending(false);
     }
   }
 
   return (
-    <button
-      className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl border-2 border-[#16324f] bg-[#fffdf7] px-3 py-2 font-bold text-[#16324f] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#dd796f] disabled:cursor-wait disabled:opacity-65"
-      disabled={pending}
-      onClick={signOut}
-      type="button"
-    >
-      {pending ? "Signing out..." : "Sign out"}
-    </button>
+    <div className="grid justify-items-end gap-1">
+      <button
+        className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl border-2 border-[#16324f] bg-[#fffdf7] px-3 py-2 font-bold text-[#16324f] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#dd796f] disabled:cursor-wait disabled:opacity-65"
+        disabled={pending}
+        onClick={signOut}
+        type="button"
+      >
+        {pending ? "Signing out..." : "Sign out"}
+      </button>
+      <span className="text-[#7d302b]" aria-live="polite">
+        {error}
+      </span>
+    </div>
   );
 }

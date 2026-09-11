@@ -14,7 +14,7 @@
     "typecheck": "NEXT_TELEMETRY_DISABLED=1 next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:e2e:functional": "playwright test",
+    "test:e2e:functional": "npm run build && playwright test",
     "test:e2e:visual": "playwright test --grep @visual",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

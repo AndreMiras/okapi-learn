@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const port = 3100;
+const chromiumExecutable = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -10,7 +11,12 @@ export default defineConfig({
   reporter: process.env.CI ? [["html", { open: "never" }]] : "list",
   use: {
     baseURL: `http://localhost:${port}`,
-    trace: "retain-on-failure",
+    launchOptions: {
+      args: ["--disable-gpu"],
+      ...(chromiumExecutable ? { executablePath: chromiumExecutable } : {}),
+    },
+    screenshot: "off",
+    trace: "off",
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
@@ -28,6 +34,13 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 30_000,
       url: `http://localhost:${port}`,
+    },
+    {
+      command:
+        "NODE_ENV=test MYLOCKER_API_BASE_URL=http://127.0.0.1:4100 PUBLIC_APP_ORIGIN=http://localhost:3101 SESSION_SECRET=a-fictional-e2e-expiry-secret-long-enough SESSION_TTL_SECONDS=1 npm start -- --hostname localhost --port 3101",
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+      url: "http://localhost:3101",
     },
   ],
 });
