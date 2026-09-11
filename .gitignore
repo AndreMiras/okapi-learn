@@ -1,0 +1,22 @@
+# Supplied binary and decompilation artifacts
+/apks/
+
+# Workspace-local research tools and transient files
+/.tools/
+/.runtime/
+
+# Local credentials and environment values
+.env*
+!.env.mylocker.example
+!.env.example
+
+# Application output and local test artifacts
+/node_modules/
+/.next/
+/coverage/
+/playwright-report/
+/test-results/
+
+# Local editor and operating-system files
+.DS_Store
+*.tsbuildinfo
