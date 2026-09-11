@@ -12,6 +12,13 @@ const nextConfig: NextConfig = {
           ...createSecurityHeaders(process.env.NODE_ENV === "production"),
         ],
       },
+      {
+        source: "/(learners|learn/:path*)",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store" },
+          { key: "Pragma", value: "no-cache" },
+        ],
+      },
     ];
   },
 };

@@ -1,5 +1,5 @@
 export const MAX_SESSION_TTL_SECONDS = 8 * 60 * 60;
-const PRODUCTION_API_ORIGIN = "https://api.kidsandus.es";
+export const DEFAULT_API_ORIGIN = "https://api.kidsandus.es";
 
 export type ServerConfig = Readonly<{
   allowedAudioOrigins: readonly string[];
@@ -76,11 +76,11 @@ function parseOrigins(
 export function parseServerConfig(environment: Environment): ServerConfig {
   const production = environment.NODE_ENV === "production";
   const apiBaseUrl = parseOrigin(
-    required(environment, "MYLOCKER_API_BASE_URL"),
+    environment.MYLOCKER_API_BASE_URL?.trim() || DEFAULT_API_ORIGIN,
     "MYLOCKER_API_BASE_URL",
     production,
   );
-  if (production && apiBaseUrl !== PRODUCTION_API_ORIGIN) {
+  if (production && apiBaseUrl !== DEFAULT_API_ORIGIN) {
     throw new ConfigurationError(
       "MYLOCKER_API_BASE_URL is not an approved production origin",
     );

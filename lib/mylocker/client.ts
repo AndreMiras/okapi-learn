@@ -7,6 +7,7 @@ import { normalizeAuthenticationResponse } from "./normalize";
 import type { AuthenticationGraph, LoginCredentials } from "./types";
 
 const AUTHENTICATION_PATH = "/api/Alumnes/AutenticateUser";
+const LOGOUT_PATH = "/api/Alumnes/LogOut";
 const DEFAULT_TIMEOUT_MS = 15_000;
 const MAX_RESPONSE_BYTES = 1_000_000;
 
@@ -115,6 +116,24 @@ export function createUpstreamClient(options: UpstreamClientOptions) {
       }
       return normalizeAuthenticationResponse(payload);
     },
+    async logout(token: string): Promise<void> {
+      const logoutEndpoint = new URL(LOGOUT_PATH, `${options.apiBaseUrl}/`);
+      try {
+        await fetch(logoutEndpoint, {
+          cache: "no-store",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Basic ${token}`,
+            "Cache-Control": "no-store",
+          },
+          method: "POST",
+          redirect: "manual",
+          signal: AbortSignal.timeout(Math.min(timeoutMs, 5_000)),
+        });
+      } catch {
+        // Local logout is authoritative; upstream logout is best effort.
+      }
+    },
   });
 }
 
@@ -123,4 +142,9 @@ export function authenticate(
 ): Promise<AuthenticationGraph> {
   const { apiBaseUrl } = getServerConfig();
   return createUpstreamClient({ apiBaseUrl }).authenticate(credentials);
+}
+
+export function logout(token: string): Promise<void> {
+  const { apiBaseUrl } = getServerConfig();
+  return createUpstreamClient({ apiBaseUrl, timeoutMs: 5_000 }).logout(token);
 }

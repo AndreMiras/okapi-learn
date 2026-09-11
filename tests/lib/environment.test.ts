@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_API_ORIGIN,
   MAX_SESSION_TTL_SECONDS,
   parseServerConfig,
 } from "@/lib/config/environment";
@@ -26,7 +27,7 @@ describe("parseServerConfig", () => {
     });
   });
 
-  it.each(["SESSION_SECRET", "PUBLIC_APP_ORIGIN", "MYLOCKER_API_BASE_URL"])(
+  it.each(["SESSION_SECRET", "PUBLIC_APP_ORIGIN"])(
     "rejects missing %s",
     (name) => {
       expect(() =>
@@ -34,6 +35,15 @@ describe("parseServerConfig", () => {
       ).toThrow();
     },
   );
+
+  it("defaults the optional API origin to the approved Kids&Us API", () => {
+    expect(
+      parseServerConfig({
+        ...validEnvironment,
+        MYLOCKER_API_BASE_URL: undefined,
+      }).apiBaseUrl,
+    ).toBe(DEFAULT_API_ORIGIN);
+  });
 
   it("rejects a short secret", () => {
     expect(() =>

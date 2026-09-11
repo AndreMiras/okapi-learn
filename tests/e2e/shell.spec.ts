@@ -7,7 +7,9 @@ test("renders the shell without external or tracking requests", async ({
   const consoleErrors: string[] = [];
   page.on("request", (request) => {
     const url = new URL(request.url());
-    if (url.hostname !== "127.0.0.1") externalRequests.push(url.origin);
+    if (url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
+      externalRequests.push(url.origin);
+    }
   });
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
@@ -20,8 +22,9 @@ test("renders the shell without external or tracking requests", async ({
     "max-age=31536000",
   );
   expect(response.headers()["referrer-policy"]).toBe("no-referrer");
+  await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "quiet place",
+    "learning notebook",
   );
   await expect(page.getByText("independent, unofficial client")).toBeVisible();
   await page.getByRole("link", { name: "About" }).click();
@@ -32,9 +35,9 @@ test("renders the shell without external or tracking requests", async ({
 
 test("exposes the privacy and limitations page", async ({ page }) => {
   await page.goto("/about");
-  await expect(
-    page.getByRole("heading", { name: "Independent by design" }),
-  ).toBeVisible();
+  const heading = page.getByRole("heading", { name: "Independent by design" });
+  await heading.scrollIntoViewIfNeeded();
+  await expect(heading).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Known limitations" }),
   ).toBeVisible();

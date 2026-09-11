@@ -99,6 +99,7 @@ function respond(
 
 export async function startSyntheticUpstream(
   scenario: FixtureScenario = "success",
+  requestedPort = 0,
 ) {
   const ledger: LedgerEntry[] = [];
   const server = createServer(async (request, response) => {
@@ -114,7 +115,14 @@ export async function startSyntheticUpstream(
       (body as Record<string, unknown>).Username === FICTIONAL_USERNAME &&
       (body as Record<string, unknown>).PasswordHash === FICTIONAL_PASSWORD &&
       (body as Record<string, unknown>).isTablet === false;
-    const accepted =
+    const acceptedLogout =
+      request.method === "POST" &&
+      request.url === "/api/Alumnes/LogOut" &&
+      request.headers.accept === "application/json" &&
+      request.headers["cache-control"] === "no-store" &&
+      request.headers.authorization === `Basic ${FICTIONAL_TOKEN}` &&
+      body === null;
+    const acceptedAuthentication =
       request.method === "POST" &&
       request.url === "/api/Alumnes/AutenticateUser" &&
       request.headers.accept === "application/json" &&
@@ -122,6 +130,7 @@ export async function startSyntheticUpstream(
       request.headers["content-type"] === "application/json" &&
       request.headers.authorization === undefined &&
       expectedBody;
+    const accepted = acceptedLogout || acceptedAuthentication;
 
     ledger.push(
       Object.freeze({
@@ -140,6 +149,7 @@ export async function startSyntheticUpstream(
       );
       return;
     }
+    if (acceptedLogout) return respond(response, 200, "{}");
 
     if (scenario === "disconnect") {
       request.socket.destroy();
@@ -171,7 +181,7 @@ export async function startSyntheticUpstream(
 
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
+    server.listen(requestedPort, "127.0.0.1", resolve);
   });
   const { port } = server.address() as AddressInfo;
 

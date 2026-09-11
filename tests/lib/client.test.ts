@@ -53,6 +53,18 @@ describe("createUpstreamClient", () => {
     consoleSpy.mockRestore();
   });
 
+  it("makes one bounded best-effort logout request with only the token", async () => {
+    const { client, fixture } = await setup();
+    await client.logout(FICTIONAL_TOKEN);
+    expect(fixture.ledger).toHaveLength(1);
+    expect(fixture.ledger[0]).toMatchObject({
+      accepted: true,
+      fieldNames: [],
+      method: "POST",
+      path: "/api/Alumnes/LogOut",
+    });
+  });
+
   it.each([
     ["rejected", "authentication_rejected"],
     ["forbidden", "forbidden"],

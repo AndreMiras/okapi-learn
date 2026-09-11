@@ -9,10 +9,10 @@ export const englishMessages = {
       "The first release will show catalog metadata. Production audio and video playback remain unavailable until browser behavior, entitlement, URL lifetime, and licensing are approved. Games, downloads, offline use, progress reporting, push, and learner photos are not included.",
     privacyHeading: "Privacy first",
     privacyText:
-      "There is no analytics or advertising. Credentials will be exchanged once by the server and never retained. Future authenticated sessions will be temporary and process restarts will sign everyone out.",
+      "There is no analytics or advertising. Credentials are exchanged once by the server and never retained. Authenticated sessions are temporary and process restarts sign everyone out.",
     refreshHeading: "Refresh behavior",
     refreshText:
-      "Catalog data will remain fixed for an authenticated session. Sign in again to refresh it; Merriloop will not store or silently replay a password.",
+      "Catalog data remains fixed for an authenticated session. Sign in again to refresh it; Merriloop does not store or silently replay a password.",
     title: "About",
   },
   home: {
