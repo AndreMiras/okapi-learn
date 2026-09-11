@@ -34,6 +34,19 @@ describe("createSecurityHeaders", () => {
     );
   });
 
+  it("adds only deduplicated enabled media origins to media-src", () => {
+    const policy = createContentSecurityPolicy("nonce", false, [
+      "https://video.example",
+      "https://audio.example",
+      "https://video.example",
+    ]);
+    expect(policy).toContain(
+      "media-src https://video.example https://audio.example",
+    );
+    expect(policy).toContain("connect-src 'self'");
+    expect(policy).not.toContain("connect-src 'self' https://");
+  });
+
   it("sets HSTS only in production", () => {
     expect(asRecord(true)["Strict-Transport-Security"]).toContain(
       "max-age=31536000",

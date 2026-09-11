@@ -3,8 +3,12 @@ export type SecurityHeader = Readonly<{ key: string; value: string }>;
 export function createContentSecurityPolicy(
   nonce: string,
   development: boolean,
+  mediaOrigins: readonly string[] = [],
 ): string {
   const developmentEval = development ? " 'unsafe-eval'" : "";
+  const mediaSource = mediaOrigins.length
+    ? [...new Set(mediaOrigins)].join(" ")
+    : "'none'";
   return [
     "default-src 'self'",
     "base-uri 'self'",
@@ -13,7 +17,7 @@ export function createContentSecurityPolicy(
     "form-action 'self'",
     "frame-ancestors 'none'",
     "img-src 'self' data:",
-    "media-src 'none'",
+    `media-src ${mediaSource}`,
     "object-src 'none'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${developmentEval}`,
     `style-src 'self' 'nonce-${nonce}'`,

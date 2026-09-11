@@ -29,6 +29,7 @@ export const E2E_USERS = Object.freeze({
   emptyCatalog: "empty-catalog@example.test",
   longCatalog: "long-catalog@example.test",
   malformedCatalog: "malformed-catalog@example.test",
+  media: "media-fixture@example.test",
   mismatchedCourse: "mismatched-course@example.test",
   multipleLearners: "multiple-learners@example.test",
   noLearners: "no-learners@example.test",
@@ -111,6 +112,49 @@ export function syntheticAuthenticationResponse() {
 
 function responseForUsername(username: string): unknown {
   const base = syntheticAuthenticationResponse();
+  if (username === E2E_USERS.media || username.startsWith("flow-media-")) {
+    return {
+      ...base,
+      Courses: [
+        {
+          ...base.Courses[0],
+          Audios: [
+            {
+              AudioId: "audio-synthetic",
+              Description: "A generated tone for browser testing.",
+              Duration: "00:01",
+              Orden: 1,
+              Title: "Synthetic Tone",
+              UrlAudio: "http://127.0.0.1:4200/media/ok.wav",
+            },
+            ...[
+              ["Expired fixture", "expired"],
+              ["Octet stream fixture", "octet-stream"],
+              ["Truncated fixture", "truncated"],
+              ["Unsupported fixture", "unsupported"],
+              ["Allowed redirect fixture", "redirect-allowed"],
+              ["Disallowed redirect fixture", "redirect-disallowed"],
+              ["No range fixture", "no-ranges"],
+            ].map(([Title, path], index) => ({
+              AudioId: `audio-fixture-${index}`,
+              Description: null,
+              Duration: null,
+              Orden: index + 2,
+              Title,
+              UrlAudio: `http://127.0.0.1:4200/media/${path}`,
+            })),
+          ],
+          Videos: [
+            {
+              ...base.Courses[0]!.Videos[0],
+              Title: "Synthetic Theatre",
+              UrlVideo: "http://127.0.0.1:4200/media/ok.wav",
+            },
+          ],
+        },
+      ],
+    };
+  }
   if (username === E2E_USERS.noLearners) {
     return { ...base, Courses: [], Students: [] };
   }

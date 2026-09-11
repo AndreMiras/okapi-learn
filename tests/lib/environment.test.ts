@@ -104,13 +104,39 @@ describe("parseServerConfig", () => {
   });
 
   it("allows HTTP loopback origins only outside production", () => {
-    expect(
+    const config = parseServerConfig({
+      ...validEnvironment,
+      ALLOWED_VIDEO_ORIGINS: "http://127.0.0.1:4200",
+      ENABLE_VIDEO_PLAYBACK: "true",
+      MYLOCKER_API_BASE_URL: "http://127.0.0.1:4100",
+      NODE_ENV: "test",
+      PUBLIC_APP_ORIGIN: "http://localhost:3000",
+    });
+    expect(config.apiBaseUrl).toBe("http://127.0.0.1:4100");
+    expect(config.allowedVideoOrigins).toEqual(["http://127.0.0.1:4200"]);
+  });
+
+  it("rejects media origins that could receive the application cookie", () => {
+    expect(() =>
       parseServerConfig({
         ...validEnvironment,
-        MYLOCKER_API_BASE_URL: "http://127.0.0.1:4100",
-        NODE_ENV: "test",
-        PUBLIC_APP_ORIGIN: "http://localhost:3000",
-      }).apiBaseUrl,
-    ).toBe("http://127.0.0.1:4100");
+        ALLOWED_VIDEO_ORIGINS: "https://merriloop.example:444",
+      }),
+    ).toThrow(/cookie hostname|default HTTPS port/);
+  });
+
+  it.each([
+    "https://user:pass@media.example",
+    "https://media.example/path",
+    "https://media.example?grant=value",
+    "https://media.example#fragment",
+    "https://media.example:444",
+  ])("rejects unsafe production media origin %s", (origin) => {
+    expect(() =>
+      parseServerConfig({
+        ...validEnvironment,
+        ALLOWED_VIDEO_ORIGINS: origin,
+      }),
+    ).toThrow();
   });
 });

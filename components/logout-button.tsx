@@ -2,37 +2,15 @@
 
 import { useEffect, useState } from "react";
 
-const CHANNEL = "merriloop-session";
-const STORAGE_KEY = "merriloop-logout";
-
-function announceLogout() {
-  if ("BroadcastChannel" in window) {
-    const channel = new BroadcastChannel(CHANNEL);
-    channel.postMessage("logout");
-    channel.close();
-  }
-  localStorage.setItem(STORAGE_KEY, String(Date.now()));
-  localStorage.removeItem(STORAGE_KEY);
-}
+import { announceLogout, subscribeToLogout } from "@/lib/session/client-events";
 
 export function LogoutButton() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const channel =
-      "BroadcastChannel" in window ? new BroadcastChannel(CHANNEL) : null;
     const leave = () => window.location.replace("/login?reason=signed-out");
-    channel?.addEventListener("message", leave);
-    const storage = (event: StorageEvent) => {
-      if (event.key === STORAGE_KEY) leave();
-    };
-    window.addEventListener("storage", storage);
-    return () => {
-      channel?.removeEventListener("message", leave);
-      channel?.close();
-      window.removeEventListener("storage", storage);
-    };
+    return subscribeToLogout(leave);
   }, []);
 
   async function signOut() {

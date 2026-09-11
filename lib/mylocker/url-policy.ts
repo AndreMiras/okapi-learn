@@ -14,15 +14,28 @@ export function normalizeServerHeldMediaUrl(value: unknown): string | null {
   }
 
   if (
-    url.protocol !== "https:" ||
+    ((url.protocol !== "https:" || (url.port && url.port !== "443")) &&
+      !(
+        url.protocol === "http:" &&
+        (url.hostname === "localhost" || url.hostname === "127.0.0.1")
+      )) ||
     url.username ||
     url.password ||
     url.hash ||
-    !url.hostname ||
-    (url.port && url.port !== "443")
+    !url.hostname
   ) {
     throw new UpstreamError("invalid_response");
   }
 
   return url.href;
+}
+
+export function selectPlayableMediaUrl(
+  value: string | null,
+  enabled: boolean,
+  allowedOrigins: readonly string[],
+): string | null {
+  if (!enabled || !value) return null;
+  const url = new URL(value);
+  return allowedOrigins.includes(url.origin) ? value : null;
 }

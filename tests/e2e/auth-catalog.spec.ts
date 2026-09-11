@@ -1,17 +1,12 @@
 import AxeBuilder from "@axe-core/playwright";
-import {
-  expect,
-  test,
-  type BrowserContext,
-  type Page,
-  type TestInfo,
-} from "@playwright/test";
+import { type BrowserContext } from "@playwright/test";
 
 import {
   E2E_FORBIDDEN_BROWSER_VALUES,
   E2E_USERS,
   FICTIONAL_PASSWORD,
 } from "../fixtures/upstream";
+import { expect, test, type Page, type TestInfo } from "./test";
 
 const appOrigin = "http://localhost:3100";
 const expiryOrigin = "http://localhost:3101";

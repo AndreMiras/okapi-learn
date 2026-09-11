@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { MediaPlayer } from "@/components/media-player";
 import { ProtectedTools } from "@/components/protected-tools";
+import { getServerConfig } from "@/lib/config/server";
+import { selectPlayableMediaUrl } from "@/lib/mylocker/url-policy";
 import { requireSession } from "@/lib/session/dal";
 import { selectMedia } from "@/lib/session/selectors";
 
@@ -9,12 +12,16 @@ export default async function MediaPage({
   params,
 }: PageProps<"/learn/[learnerAlias]/media/[mediaAlias]">) {
   const { learnerAlias, mediaAlias } = await params;
-  const selection = selectMedia(
-    await requireSession(),
-    learnerAlias,
-    mediaAlias,
-  );
+  const session = await requireSession();
+  const selection = selectMedia(session, learnerAlias, mediaAlias);
   if (!selection) notFound();
+  const config = getServerConfig();
+  const isAudio = selection.media.kind === "audio";
+  const source = selectPlayableMediaUrl(
+    selection.media.url,
+    isAudio ? config.audioPlaybackEnabled : config.videoPlaybackEnabled,
+    isAudio ? config.allowedAudioOrigins : config.allowedVideoOrigins,
+  );
   return (
     <div className="grid w-full gap-[clamp(2rem,6vw,5rem)]">
       <article className="relative overflow-hidden rounded-[clamp(1rem,4vw,2rem)] border border-[#16324f26] bg-[#fffdf7] p-[clamp(1.5rem,5vw,4rem)] shadow-[0_18px_50px_#16324f18] max-[420px]:p-5">
@@ -57,13 +64,22 @@ export default async function MediaPage({
             </div>
           )}
         </dl>
-        <div
-          className="mt-6 grid gap-1 border-l-4 border-[#f4b942] bg-[#f4b94224] px-4 py-3"
-          role="status"
-        >
-          <strong>Catalog only</strong>
-          <span>Playback is not available in this version.</span>
-        </div>
+        {source ? (
+          <MediaPlayer
+            expiresAt={session.expiresAt}
+            kind={selection.media.kind}
+            source={source}
+            title={selection.media.title}
+          />
+        ) : (
+          <div
+            className="mt-6 grid gap-1 border-l-4 border-[#f4b942] bg-[#f4b94224] px-4 py-3"
+            role="status"
+          >
+            <strong>Catalog only</strong>
+            <span>Playback is not available in this version.</span>
+          </div>
+        )}
       </article>
       <ProtectedTools />
     </div>

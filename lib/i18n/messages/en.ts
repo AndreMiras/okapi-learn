@@ -6,7 +6,7 @@ export const englishMessages = {
       "Merriloop is an unofficial client for authorized users. It is not a Kids&Us product and does not use official branding, characters, artwork, or application assets.",
     limitationsHeading: "Known limitations",
     limitationsText:
-      "The first release will show catalog metadata. Production audio and video playback remain unavailable until browser behavior, entitlement, URL lifetime, and licensing are approved. Games, downloads, offline use, progress reporting, push, and learner photos are not included.",
+      "The first release shows catalog metadata. Synthetic playback can be used by maintainers to verify browser mechanics, but production audio and video remain disabled until browser behavior, entitlement, URL lifetime, and licensing are approved. Games, downloads, offline use, progress reporting, push, and learner photos are not included.",
     privacyHeading: "Privacy first",
     privacyText:
       "There is no analytics or advertising. Credentials are exchanged once by the server and never retained. Authenticated sessions are temporary and process restarts sign everyone out.",

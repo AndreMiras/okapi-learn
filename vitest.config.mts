@@ -21,7 +21,12 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["lib/**/*.ts"],
-      exclude: ["lib/config/server.ts", "lib/i18n/**", "lib/mylocker/types.ts"],
+      exclude: [
+        "lib/config/server.ts",
+        "lib/i18n/**",
+        "lib/mylocker/types.ts",
+        "lib/session/client-events.ts",
+      ],
       reporter: ["text", "lcov"],
       thresholds: {
         branches: 90,

@@ -4,6 +4,7 @@
 # Workspace-local research tools and transient files
 /.tools/
 /.runtime/
+/thoughts/
 
 # Local credentials and environment values
 .env*
@@ -14,8 +15,9 @@
 /node_modules/
 /.next/
 /coverage/
-/playwright-report/
-/test-results/
+/diagnostics/
+/playwright-report*/
+/test-results*/
 
 # Local editor and operating-system files
 .DS_Store

@@ -65,11 +65,17 @@ function parseBoolean(environment: Environment, name: string): boolean {
 function parseOrigins(
   value: string | undefined,
   name: string,
+  production: boolean,
 ): readonly string[] {
   if (!value?.trim()) return [];
-  const origins = value
-    .split(",")
-    .map((entry) => parseOrigin(entry.trim(), name, true));
+  const origins = value.split(",").map((entry) => {
+    const origin = parseOrigin(entry.trim(), name, production);
+    const url = new URL(origin);
+    if (production && url.port) {
+      throw new ConfigurationError(`${name} must use the default HTTPS port`);
+    }
+    return origin;
+  });
   return [...new Set(origins)];
 }
 
@@ -114,10 +120,12 @@ export function parseServerConfig(environment: Environment): ServerConfig {
   const allowedVideoOrigins = parseOrigins(
     environment.ALLOWED_VIDEO_ORIGINS,
     "ALLOWED_VIDEO_ORIGINS",
+    production,
   );
   const allowedAudioOrigins = parseOrigins(
     environment.ALLOWED_AUDIO_ORIGINS,
     "ALLOWED_AUDIO_ORIGINS",
+    production,
   );
   const videoPlaybackEnabled = parseBoolean(
     environment,
@@ -133,6 +141,14 @@ export function parseServerConfig(environment: Environment): ServerConfig {
   }
   if (audioPlaybackEnabled && allowedAudioOrigins.length === 0) {
     throw new ConfigurationError("Audio playback requires an allowed origin");
+  }
+  const applicationHostname = new URL(publicAppOrigin).hostname;
+  for (const origin of [...allowedVideoOrigins, ...allowedAudioOrigins]) {
+    if (new URL(origin).hostname === applicationHostname) {
+      throw new ConfigurationError(
+        "Media origins must not share the application cookie hostname",
+      );
+    }
   }
 
   return Object.freeze({

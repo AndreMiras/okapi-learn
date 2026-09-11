@@ -13,6 +13,12 @@ permissions:
 
 env:
   NEXT_TELEMETRY_DISABLED: 1
+  PUBLIC_APP_ORIGIN: https://merriloop.example
+  SESSION_SECRET: a-fictional-ci-secret-that-is-at-least-32-bytes
+  ENABLE_AUDIO_PLAYBACK: "false"
+  ENABLE_VIDEO_PLAYBACK: "false"
+  ALLOWED_AUDIO_ORIGINS: ""
+  ALLOWED_VIDEO_ORIGINS: ""
 
 jobs:
   baseline:
@@ -29,6 +35,76 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run format:check
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
+
+  functional-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit
+      - run: npx playwright install --with-deps chromium webkit
       - run: npm run test:e2e:functional
+      - id: redaction
+        if: always()
+        run: npm run scan:diagnostics
+      - if: failure() && steps.redaction.outcome == 'success'
+        uses: actions/upload-artifact@v6
+        with:
+          name: functional-e2e-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            diagnostics/functional.json
+          retention-days: 7
+
+  visual-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:visual
+      - id: redaction
+        if: always()
+        run: npm run scan:diagnostics
+      - if: failure() && steps.redaction.outcome == 'success'
+        uses: actions/upload-artifact@v6
+        with:
+          name: visual-e2e-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            diagnostics/visual.json
+          retention-days: 7
+
+  supply-chain-and-scans:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit
+      - run: npm run check:dependencies
+      - run: npm run check:licenses
+      - run: npm run scan:secrets
+      - run: npm run scan:personal-data
