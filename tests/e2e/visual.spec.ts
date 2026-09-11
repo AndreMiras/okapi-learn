@@ -17,10 +17,19 @@ async function capture(page: Page, name: string) {
     await new Promise((resolve) =>
       requestAnimationFrame(() => requestAnimationFrame(resolve)),
     );
+  });
+  await page.waitForTimeout(100);
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    const skipLink = document.querySelector<HTMLElement>(
+      'a[href="#main-content"]',
+    );
+    if (skipLink) skipLink.style.transform = "translateY(-200%)";
     document.body.tabIndex = -1;
     document.body.focus();
   });
-  await page.waitForTimeout(100);
   await expect(page).toHaveScreenshot(name, { fullPage: true });
 }
 
