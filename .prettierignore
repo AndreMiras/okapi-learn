@@ -1,0 +1,10 @@
+.next
+.tools
+apks
+coverage
+node_modules
+package-lock.json
+playwright-report
+test-results
+MYLOCKER_KICKOFF.md
+thoughts
