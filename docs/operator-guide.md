@@ -2,7 +2,7 @@
 
 ## Runtime boundary
 
-Run exactly one Node.js 24 process behind a reverse proxy that terminates HTTPS. Do not use multiple workers, replicas, serverless instances, or a rolling overlap: sessions exist only in one process and every restart intentionally invalidates them. The bounded store holds at most 500 active sessions and rejects new sessions safely at capacity.
+Without Upstash Redis, run exactly one Node.js 24 process behind a reverse proxy that terminates HTTPS. The fallback session store is process-local, holds at most 500 active sessions, and is suitable only for local development or a single persistent process. Vercel deployments require the Upstash Redis integration so sessions are shared by all function instances.
 
 ## Configuration
 
@@ -13,6 +13,8 @@ All variables are server-only. Startup rejects missing, malformed, unsafe, or co
 | `SESSION_SECRET`        | At least 32 random bytes; rotate by restarting and accepting that all sessions end.                     |
 | `SESSION_TTL_SECONDS`   | Integer from 1 through 28800; absolute and non-sliding.                                                 |
 | `PUBLIC_APP_ORIGIN`     | Exact public HTTPS origin, with no credentials, path, query, or fragment.                               |
+| `KV_REST_API_URL`       | Upstash REST endpoint; required with `KV_REST_API_TOKEN` on Vercel.                                     |
+| `KV_REST_API_TOKEN`     | Upstash REST token; required with `KV_REST_API_URL` on Vercel.                                          |
 | `MYLOCKER_API_BASE_URL` | Optional; production permits only the compiled approved origin.                                         |
 | `ENABLE_AUDIO_PLAYBACK` | `false` by default; set to `true` only after the independent audio gate is approved.                    |
 | `ENABLE_VIDEO_PLAYBACK` | `false` by default; set to `true` only after the independent video gate is approved.                    |
@@ -33,6 +35,7 @@ Media origins must not share the application hostname because a host-only sessio
 
 1. Run every automated release check with media disabled.
 2. Start the built artifact with the documented environment and require successful health/readiness checks.
-3. If a separately approved media gate is released, change only that type's flag and exact origin list.
-4. Roll back media first by setting both playback flags to `false` and restarting.
-5. Roll back the application artifact if needed. Every restart signs all users out; there are no schema or data migrations.
+3. Confirm the deployment can create, read, and delete an Upstash-backed session.
+4. If a separately approved media gate is released, change only that type's flag and exact origin list.
+5. Roll back media first by setting both playback flags to `false` and restarting.
+6. Roll back the application artifact if needed; there are no schema migrations.

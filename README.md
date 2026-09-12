@@ -21,6 +21,13 @@ When an approved direct-media gate is enabled, the selected URL is disclosed to 
 
 Use Node.js 24 and npm. Create local server-only environment values based on `.env.example`; never place account credentials in environment files.
 
+Generate a cryptographically random session secret and place the output in the
+ignored local environment as `SESSION_SECRET`:
+
+```sh
+npm run generate:session-secret
+```
+
 ```sh
 npm ci
 npm run dev

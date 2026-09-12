@@ -94,8 +94,8 @@ export async function POST(request: Request) {
       .map((part) => part.trim())
       .find((part) => part.startsWith(`${SESSION_COOKIE_NAME}=`))
       ?.slice(SESSION_COOKIE_NAME.length + 1);
-    store.delete(existingCookie);
-    const issued = store.issue(graph);
+    await store.delete(existingCookie);
+    const issued = await store.issue(graph);
     const response = NextResponse.json({ ok: true });
     response.headers.set("Cache-Control", "private, no-store");
     response.cookies.set(

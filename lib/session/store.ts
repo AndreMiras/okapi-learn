@@ -13,6 +13,22 @@ export const SESSION_COOKIE_NAME = "merriloop_session";
 export const MAX_ACTIVE_SESSIONS = 500;
 const COOKIE_VERSION = "v1";
 
+export type IssuedSession = Readonly<{
+  cookieValue: string;
+  expiresAt: number;
+}>;
+
+export type SessionStore = Readonly<{
+  size?: number;
+  delete: (
+    cookieValue: string | undefined,
+  ) => SessionRecord | null | Promise<SessionRecord | null>;
+  issue: (graph: AuthenticationGraph) => IssuedSession | Promise<IssuedSession>;
+  read: (
+    cookieValue: string | undefined,
+  ) => SessionRecord | null | Promise<SessionRecord | null>;
+}>;
+
 export class SessionCapacityError extends Error {
   constructor() {
     super("Session capacity reached");
@@ -67,9 +83,7 @@ export class MemorySessionStore {
     return this.#records.size;
   }
 
-  issue(
-    graph: AuthenticationGraph,
-  ): Readonly<{ cookieValue: string; expiresAt: number }> {
+  issue(graph: AuthenticationGraph): IssuedSession {
     this.sweep();
     if (this.#records.size >= this.#maximumSessions)
       throw new SessionCapacityError();
