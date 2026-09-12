@@ -1,6 +1,19 @@
-# Merriloop
+# Okapi Learn
 
-Merriloop is an independent, unofficial web client for authorized MyLocker users. It is not affiliated with, endorsed by, or operated by Kids&Us. The project uses an original interface and does not include official branding, characters, artwork, application assets, or licensed course media.
+Okapi Learn, formerly developed under the name Merriloop, is an independent, unofficial web client for authorized MyLocker users. It is not affiliated with, endorsed by, or operated by Kids&Us. The project uses an original interface and does not include official branding, characters, artwork, application assets, or licensed course media.
+
+## Okapi project family
+
+Okapi is the shared project identity for two independently deployed clients:
+
+| Product        | Purpose                                         | Website                                                | Source                                                              |
+| -------------- | ----------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------- |
+| Okapi Learn    | Learner course and media catalog                | [learn.okapi.family](https://learn.okapi.family)       | [AndreMiras/okapi-learn](https://github.com/AndreMiras/okapi-learn) |
+| Okapi Families | Parent attendance and school-information portal | [families.okapi.family](https://families.okapi.family) | Maintained separately                                               |
+
+[okapi.family](https://okapi.family) is the main project domain and currently opens Okapi Learn. The product names describe the user-facing experiences; MyLocker and MyKids are used only where needed to explain compatibility with the corresponding Kids&Us services.
+
+The applications share an umbrella identity, not an API or session. Okapi Learn uses the MyLocker `Alumnes` contract, while Okapi Families uses the separate MyKids and Student contracts. Their upstream tokens, authorization rules, domain models, deployments, and release lifecycles remain independent.
 
 ## Privacy and security
 
@@ -9,13 +22,13 @@ Merriloop is an independent, unofficial web client for authorized MyLocker users
 - Sessions have a non-sliding lifetime of at most eight hours. Restarting the single server process signs everyone out.
 - Stored learner data is limited to a display name and the relationships needed to select an owned catalog. Surnames, birth dates, photos, progress, games, and unknown response fields are discarded.
 - Personalized pages are private and `no-store`. There is no analytics, advertising, session replay, or production payload tracing.
-- Sign out, then sign in again to refresh the catalog. Merriloop does not silently refresh with a retained password.
+- Sign out, then sign in again to refresh the catalog. Okapi Learn does not silently refresh with a retained password.
 
 ## Media
 
 Catalog metadata is available without playback. Production audio and video are independently disabled by default and must remain disabled until the corresponding entitlement, licensing, browser, codec, range, redirect, URL-lifetime, and exact-origin review is approved.
 
-When an approved direct-media gate is enabled, the selected URL is disclosed to the authorized browser and used only by a native `<audio>` or `<video>` element. Merriloop does not proxy, download, transform, cache, or persist playback progress. Synthetic loopback media exists only for automated browser verification.
+When an approved direct-media gate is enabled, the selected URL is disclosed to the authorized browser and used only by a native `<audio>` or `<video>` element. Okapi Learn does not proxy, download, transform, cache, or persist playback progress. Synthetic loopback media exists only for automated browser verification.
 
 ## Local development
 
@@ -58,7 +71,7 @@ The MVP supports one self-hosted Node process behind an HTTPS reverse proxy. It 
 
 ## Known limits
 
-Merriloop does not implement games, downloads, offline or background playback, casting, learner photos, push notifications, books, progress reporting, terms acceptance, or activation claims. Pending terms and tester modes fail closed and must be handled through an official channel.
+Okapi Learn does not implement games, downloads, offline or background playback, casting, learner photos, push notifications, books, progress reporting, terms acceptance, or activation claims. Pending terms and tester modes fail closed and must be handled through an official channel.
 
 English is the only enabled interface locale. Spanish and Catalan require complete human review before release.
 
