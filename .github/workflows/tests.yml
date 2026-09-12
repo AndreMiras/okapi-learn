@@ -32,6 +32,13 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts --no-audit
       - run: npm run test:coverage
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          disable_search: true
+          fail_ci_if_error: false
+          files: ./coverage/lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run format:check

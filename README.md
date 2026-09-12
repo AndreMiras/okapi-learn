@@ -1,5 +1,8 @@
 # Okapi Learn
 
+[![Tests](https://github.com/AndreMiras/okapi-learn/actions/workflows/tests.yml/badge.svg)](https://github.com/AndreMiras/okapi-learn/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/AndreMiras/okapi-learn/graph/badge.svg)](https://codecov.io/gh/AndreMiras/okapi-learn)
+
 Okapi Learn, formerly developed under the name Merriloop, is an independent, unofficial web client for authorized MyLocker users. It is not affiliated with, endorsed by, or operated by Kids&Us. The project uses an original interface and does not include official branding, characters, artwork, application assets, or licensed course media.
 
 ## Okapi project family
