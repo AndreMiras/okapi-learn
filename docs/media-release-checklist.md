@@ -14,3 +14,26 @@ Complete and approve this checklist independently for audio and video. Productio
 - [ ] The gate is immediately disabled if any criterion fails.
 
 Audio cannot inherit video approval, and video cannot inherit audio approval.
+
+## Development Validation: Video
+
+On 2026-09-12, an authorized user confirmed direct playback with an owned
+account in Linux Brave and Linux Firefox. Pause, seek, volume, fullscreen, and
+replay worked without application or browser console errors.
+
+The bounded protocol probe established an ISO BMFF/MP4 container with H.264
+video and AAC audio. The origin returned `application/octet-stream`, served
+initial and tail byte ranges with `206`, and exposed no redirect or content
+disposition. Native Chromium loaded metadata successfully without a proxy or
+CORS workaround. Only protocol conclusions were retained; the credential,
+token, payload, media URL, media bytes, and diagnostic artifacts were not.
+
+The exact HTTPS origin is configured only in the ignored development
+environment. Production playback remains disabled. The video gate remains open
+pending applicable terms review, WebKit playback, URL lifetime/expiry behavior,
+and the remaining checklist items above.
+
+## Development Validation: Audio
+
+The owned catalog supplied no audio URLs. Audio playback and its allowlist
+remain disabled, and no audio delivery claim or approval is inferred.

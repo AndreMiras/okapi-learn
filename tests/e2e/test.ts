@@ -10,7 +10,11 @@ export const test = base.extend({
     const externalOrigins = new Set<string>();
     page.on("request", (request) => {
       const url = new URL(request.url());
-      if (url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
+      const networkUrl = url.protocol === "blob:" ? new URL(url.origin) : url;
+      if (
+        networkUrl.hostname !== "localhost" &&
+        networkUrl.hostname !== "127.0.0.1"
+      ) {
         externalOrigins.add(url.origin);
       }
     });

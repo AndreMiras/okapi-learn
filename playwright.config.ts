@@ -3,6 +3,10 @@ import { defineConfig, devices } from "@playwright/test";
 const port = 3100;
 const chromiumExecutable = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 const suite = process.env.PLAYWRIGHT_SUITE ?? "functional";
+const chromiumLaunchOptions = {
+  args: ["--disable-gpu"],
+  ...(chromiumExecutable ? { executablePath: chromiumExecutable } : {}),
+};
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -16,16 +20,24 @@ export default defineConfig({
     : "list",
   use: {
     baseURL: `http://localhost:${port}`,
-    launchOptions: {
-      args: ["--disable-gpu"],
-      ...(chromiumExecutable ? { executablePath: chromiumExecutable } : {}),
-    },
     screenshot: "off",
     trace: "off",
   },
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    { name: "mobile-chromium", use: { ...devices["Pixel 5"] } },
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        launchOptions: chromiumLaunchOptions,
+      },
+    },
+    {
+      name: "mobile-chromium",
+      use: {
+        ...devices["Pixel 5"],
+        launchOptions: chromiumLaunchOptions,
+      },
+    },
     { name: "mobile-webkit", use: { ...devices["iPhone 13"] } },
   ],
   webServer: [

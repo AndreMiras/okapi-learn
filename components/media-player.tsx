@@ -23,6 +23,7 @@ export function MediaPlayer({
 
   useEffect(() => {
     const element = mediaRef.current;
+    if (element) element.src = source;
     const clear = () => {
       if (!element) return;
       element.pause();
@@ -42,13 +43,12 @@ export function MediaPlayer({
       unsubscribe();
       clear();
     };
-  }, [attempt, expiresAt]);
+  }, [attempt, expiresAt, source]);
 
   const common = {
     "aria-label": `${kind === "audio" ? "Audio" : "Video"} player for ${title}`,
     controls: true,
     controlsList: "nodownload noremoteplayback",
-    key: attempt,
     onCanPlay: () => setFailed(false),
     onError: () => setFailed(true),
     preload: "none" as const,
@@ -62,6 +62,7 @@ export function MediaPlayer({
     <div className="mt-8 grid max-w-3xl gap-4">
       {kind === "video" ? (
         <video
+          key={attempt}
           {...common}
           className="aspect-video w-full rounded-2xl bg-[#16324f]"
           disablePictureInPicture
@@ -70,7 +71,7 @@ export function MediaPlayer({
           Your browser does not support video playback.
         </video>
       ) : (
-        <audio {...common} className="w-full">
+        <audio key={attempt} {...common} className="w-full">
           Your browser does not support audio playback.
         </audio>
       )}

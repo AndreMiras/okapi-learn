@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { normalizeAuthenticationResponse } from "@/lib/mylocker/normalize";
 import {
@@ -90,6 +90,7 @@ describe("MemorySessionStore", () => {
   });
 
   it("uses matching security attributes when setting and deleting cookies", () => {
+    vi.stubEnv("PUBLIC_APP_ORIGIN", "https://merriloop.example");
     const active = sessionCookieOptions(new Date(10_000));
     const expired = expiredSessionCookieOptions();
     expect({ ...active, expires: undefined }).toEqual({
@@ -100,7 +101,11 @@ describe("MemorySessionStore", () => {
       httpOnly: true,
       path: "/",
       sameSite: "lax",
+      secure: true,
     });
     expect(expired.expires.getTime()).toBe(0);
+
+    vi.stubEnv("PUBLIC_APP_ORIGIN", "http://localhost:3100");
+    expect(sessionCookieOptions(new Date(10_000)).secure).toBe(false);
   });
 });

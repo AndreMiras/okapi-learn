@@ -27,12 +27,15 @@ export async function readCurrentSession() {
 }
 
 export function sessionCookieOptions(expires: Date) {
+  const publicOrigin = process.env.PUBLIC_APP_ORIGIN;
   return {
     expires,
     httpOnly: true,
     path: "/",
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure: publicOrigin
+      ? new URL(publicOrigin).protocol === "https:"
+      : process.env.NODE_ENV === "production",
   };
 }
 

@@ -6,6 +6,9 @@ export function createContentSecurityPolicy(
   mediaOrigins: readonly string[] = [],
 ): string {
   const developmentEval = development ? " 'unsafe-eval'" : "";
+  const styleSource = development
+    ? "'self' 'unsafe-inline'"
+    : `'self' 'nonce-${nonce}'`;
   const mediaSource = mediaOrigins.length
     ? [...new Set(mediaOrigins)].join(" ")
     : "'none'";
@@ -20,7 +23,7 @@ export function createContentSecurityPolicy(
     `media-src ${mediaSource}`,
     "object-src 'none'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${developmentEval}`,
-    `style-src 'self' 'nonce-${nonce}'`,
+    `style-src ${styleSource}`,
   ].join("; ");
 }
 

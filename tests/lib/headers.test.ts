@@ -26,12 +26,13 @@ describe("createSecurityHeaders", () => {
     expect(policy).toContain("media-src 'none'");
     expect(policy).toContain("'nonce-fictional-nonce'");
     expect(policy).not.toContain("unsafe-eval");
+    expect(policy).not.toContain("unsafe-inline");
   });
 
-  it("permits eval only for framework development diagnostics", () => {
-    expect(createContentSecurityPolicy("fictional-nonce", true)).toContain(
-      "'unsafe-eval'",
-    );
+  it("permits inline styles and eval only for framework development diagnostics", () => {
+    const policy = createContentSecurityPolicy("fictional-nonce", true);
+    expect(policy).toContain("'unsafe-eval'");
+    expect(policy).toContain("style-src 'self' 'unsafe-inline'");
   });
 
   it("adds only deduplicated enabled media origins to media-src", () => {
