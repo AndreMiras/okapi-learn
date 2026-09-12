@@ -92,6 +92,7 @@ jobs:
           name: visual-e2e-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             diagnostics/visual.json
+            test-results-visual/**/*.png
           retention-days: 7
 
   supply-chain-and-scans:

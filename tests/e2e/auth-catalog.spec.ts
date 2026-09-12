@@ -10,6 +10,7 @@ import { expect, test, type Page, type TestInfo } from "./test";
 
 const appOrigin = "http://localhost:3100";
 const expiryOrigin = "http://localhost:3101";
+const logoutStorageKey = "merriloop-logout";
 
 function flowUser(name: string) {
   return `flow-${name}@example.test`;
@@ -255,8 +256,22 @@ test("logs out idempotently and coordinates tabs without BroadcastChannel", asyn
   const otherTab = await context.newPage();
   const learnerHref = await firstLearnerHref(page);
   await otherTab.goto(learnerHref);
+  const otherDocumentStartedAt = await otherTab.evaluate(
+    () => performance.timeOrigin,
+  );
   await signOut(page);
   await expect(otherTab).toHaveURL(/\/login\?reason=signed-out$/);
+  const logoutMarker = await page.evaluate(
+    (key) => localStorage.getItem(key),
+    logoutStorageKey,
+  );
+  expect(logoutMarker).toMatch(/^\d{13}:[0-9a-f-]{36}$/i);
+  expect(Number(logoutMarker!.split(":", 1)[0])).toBeGreaterThanOrEqual(
+    otherDocumentStartedAt,
+  );
+  for (const forbidden of E2E_FORBIDDEN_BROWSER_VALUES) {
+    expect(logoutMarker).not.toContain(forbidden);
+  }
   await page.goBack();
   await expect(
     page.getByRole("heading", { name: "Who is learning today?" }),
@@ -267,6 +282,31 @@ test("logs out idempotently and coordinates tabs without BroadcastChannel", asyn
     headers: { Origin: appOrigin },
   });
   expect(repeated.ok()).toBe(true);
+  const freshLogin = await context.newPage();
+  await freshLogin.addInitScript(() => {
+    const addEventListener = EventTarget.prototype.addEventListener;
+    EventTarget.prototype.addEventListener = function (
+      type,
+      listener,
+      options,
+    ) {
+      addEventListener.call(this, type, listener, options);
+      if (this === window && type === "storage") {
+        console.debug("test:logout-subscriber-ready");
+      }
+    };
+  });
+  const subscriberReady = freshLogin.waitForEvent(
+    "console",
+    (message) => message.text() === "test:logout-subscriber-ready",
+  );
+  await signInSuccessfully(freshLogin, flowUser("post-logout"), testInfo);
+  await subscriberReady;
+  await expect(freshLogin).toHaveURL(`${appOrigin}/learners`);
+  await expect(
+    freshLogin.getByRole("heading", { name: "Who is learning today?" }),
+  ).toBeVisible();
+  await freshLogin.close();
 });
 
 test("keeps secrets and upstream identifiers out of browser-visible data", async ({

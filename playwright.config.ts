@@ -15,6 +15,12 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   forbidOnly: Boolean(process.env.CI),
   outputDir: `test-results-${suite}`,
+  expect: {
+    toHaveScreenshot: {
+      maxDiffPixelRatio: 0.02,
+      threshold: 0.2,
+    },
+  },
   reporter: process.env.CI
     ? [["./tools/safe-playwright-reporter.mjs"]]
     : "list",

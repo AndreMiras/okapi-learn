@@ -65,6 +65,24 @@ npm run scan:personal-data
 
 Automated tests use fictional loopback fixtures only. They must never use `.env.mylocker` or contact a production service.
 
+If the host does not provide Playwright's Linux libraries, run browser tests in the Playwright image matching `@playwright/test`. Map the host user so generated files remain writable outside the container:
+
+```sh
+docker run --rm -it --ipc=host \
+  --user "$(id -u):$(id -g)" \
+  --env HOME=/tmp \
+  --volume "$PWD":/work \
+  --workdir /work \
+  mcr.microsoft.com/playwright:v1.63.0-noble \
+  bash -c "npm ci --ignore-scripts --no-audit && npm run build && \
+    PLAYWRIGHT_SUITE=media-cross-browser npx playwright test tests/e2e/media.spec.ts \
+      --project=mobile-webkit"
+```
+
+Replace the final Playwright command to run another focused browser scenario. Use `npm run test:e2e:functional` or `npm run test:e2e:visual` for the complete matrices; those scripts perform their own production build.
+
+Maintainers can regenerate visual baselines explicitly with `npm run test:e2e:visual:update` in the pinned Linux browser environment. A refresh requires full-size review of both desktop and mobile diffs and must never be used merely to make CI green. Visual comparisons allow a per-pixel threshold of 0.2 and at most 2% differing pixels. After a successful redaction scan, failed visual CI runs retain only sanitized metadata and synthetic expected, actual, and diff PNGs for seven days.
+
 ## Deployment
 
 The MVP supports one self-hosted Node process behind an HTTPS reverse proxy. It is intentionally not horizontally scalable. The in-memory store accepts at most 500 active sessions; expiry sweeps reclaim capacity. See `docs/operator-guide.md` for configuration, health checks, capacity, and rollback.

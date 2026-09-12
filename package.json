@@ -17,11 +17,12 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e:functional": "npm run build && PLAYWRIGHT_SUITE=functional playwright test --grep-invert @visual",
     "test:e2e:visual": "npm run build && PLAYWRIGHT_SUITE=visual playwright test --grep @visual --project=chromium --project=mobile-chromium",
+    "test:e2e:visual:update": "npm run build && PLAYWRIGHT_SUITE=visual playwright test --grep @visual --project=chromium --project=mobile-chromium --update-snapshots",
     "check:dependencies": "npm ls --all",
     "check:licenses": "node tools/check-licenses.mjs",
     "scan:secrets": "node tools/scan-secrets.mjs",
     "scan:personal-data": "node tools/scan-personal-data.mjs",
-    "scan:diagnostics": "node tools/scan-diagnostics.mjs diagnostics",
+    "scan:diagnostics": "node tools/scan-diagnostics.mjs diagnostics test-results-visual",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
