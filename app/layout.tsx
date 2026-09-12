@@ -13,8 +13,8 @@ export const metadata: Metadata = {
   description:
     "An independent web client for an authorized MyLocker learner catalog.",
   title: {
-    default: "Merriloop",
-    template: "%s | Merriloop",
+    default: "Okapi Learn",
+    template: "%s | Okapi Learn",
   },
 };
 
@@ -47,9 +47,9 @@ export default async function RootLayout({
               aria-hidden="true"
               className="grid size-10 -rotate-3 place-items-center rounded-[42%_58%_48%_52%] border-2 border-[#16324f] bg-[#f4b942] text-xl"
             >
-              M
+              O
             </span>
-            Merriloop
+            Okapi Learn
           </Link>
           <nav aria-label={shell.primaryNavigation}>
             <Link

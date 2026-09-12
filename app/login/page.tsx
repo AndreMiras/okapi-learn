@@ -20,7 +20,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         </h1>
         <p className="mt-6 max-w-2xl text-[clamp(1.1rem,2vw,1.3rem)]">
           Your details are sent once to the service and are never stored by
-          Merriloop.
+          Okapi Learn.
         </p>
         {(reason === "expired" || reason === "signed-out") && (
           <p
@@ -46,11 +46,11 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         </h2>
         <p>
           Your temporary session stays in this server process for no more than
-          eight hours. Restarting Merriloop signs everyone out.
+          eight hours. Restarting Okapi Learn signs everyone out.
         </p>
         <p>
           If terms need attention, an adult must use an official Kids&amp;Us
-          channel. Merriloop cannot accept terms for you.
+          channel. Okapi Learn cannot accept terms for you.
         </p>
       </aside>
     </section>

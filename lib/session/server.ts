@@ -13,11 +13,11 @@ import {
 } from "./store";
 
 declare global {
-  var __merriloopSessionStore: SessionStore | undefined;
+  var __okapiLearnSessionStore: SessionStore | undefined;
 }
 
 export function getSessionStore(): SessionStore {
-  if (!globalThis.__merriloopSessionStore) {
+  if (!globalThis.__okapiLearnSessionStore) {
     const config = getServerConfig();
     const redisUrl = process.env.KV_REST_API_URL?.trim();
     const redisToken = process.env.KV_REST_API_TOKEN?.trim();
@@ -27,7 +27,7 @@ export function getSessionStore(): SessionStore {
     if (process.env.VERCEL && !redisUrl) {
       throw new Error("Upstash Redis is required when running on Vercel");
     }
-    globalThis.__merriloopSessionStore = redisUrl
+    globalThis.__okapiLearnSessionStore = redisUrl
       ? new RedisSessionStore({
           redis: new Redis({ token: redisToken!, url: redisUrl }),
           secret: config.sessionSecret,
@@ -38,7 +38,7 @@ export function getSessionStore(): SessionStore {
           ttlSeconds: config.sessionTtlSeconds,
         });
   }
-  return globalThis.__merriloopSessionStore;
+  return globalThis.__okapiLearnSessionStore;
 }
 
 export async function readCurrentSession() {

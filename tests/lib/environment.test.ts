@@ -13,7 +13,7 @@ const validEnvironment = {
   ENABLE_VIDEO_PLAYBACK: "false",
   MYLOCKER_API_BASE_URL: "https://api.kidsandus.es",
   NODE_ENV: "production",
-  PUBLIC_APP_ORIGIN: "https://merriloop.example",
+  PUBLIC_APP_ORIGIN: "https://learn.okapi.example",
   SESSION_SECRET: "a-fictional-secret-that-is-long-enough",
   SESSION_TTL_SECONDS: String(MAX_SESSION_TTL_SECONDS),
 };
@@ -53,11 +53,11 @@ describe("parseServerConfig", () => {
 
   it.each([
     "not-a-url",
-    "https://user:pass@merriloop.example",
-    "https://merriloop.example/path",
-    "https://merriloop.example?query=yes",
-    "https://merriloop.example#fragment",
-    "http://merriloop.example",
+    "https://user:pass@learn.okapi.example",
+    "https://learn.okapi.example/path",
+    "https://learn.okapi.example?query=yes",
+    "https://learn.okapi.example#fragment",
+    "http://learn.okapi.example",
   ])("rejects unsafe production origin %s", (PUBLIC_APP_ORIGIN) => {
     expect(() =>
       parseServerConfig({ ...validEnvironment, PUBLIC_APP_ORIGIN }),
@@ -120,7 +120,7 @@ describe("parseServerConfig", () => {
     expect(() =>
       parseServerConfig({
         ...validEnvironment,
-        ALLOWED_VIDEO_ORIGINS: "https://merriloop.example:444",
+        ALLOWED_VIDEO_ORIGINS: "https://learn.okapi.example:444",
       }),
     ).toThrow(/cookie hostname|default HTTPS port/);
   });

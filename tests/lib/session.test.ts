@@ -90,7 +90,7 @@ describe("MemorySessionStore", () => {
   });
 
   it("uses matching security attributes when setting and deleting cookies", () => {
-    vi.stubEnv("PUBLIC_APP_ORIGIN", "https://merriloop.example");
+    vi.stubEnv("PUBLIC_APP_ORIGIN", "https://learn.okapi.example");
     const active = sessionCookieOptions(new Date(10_000));
     const expired = expiredSessionCookieOptions();
     expect({ ...active, expires: undefined }).toEqual({

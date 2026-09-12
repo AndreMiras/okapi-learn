@@ -1,5 +1,5 @@
 {
-  "name": "merriloop",
+  "name": "okapi-learn",
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
@@ -17,7 +17,7 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e:functional": "npm run build && PLAYWRIGHT_SUITE=functional playwright test --grep-invert @visual",
     "test:e2e:visual": "npm run build && PLAYWRIGHT_SUITE=visual playwright test --grep @visual --project=chromium --project=mobile-chromium",
-    "test:e2e:visual:update": "npm run build && PLAYWRIGHT_SUITE=visual playwright test --grep @visual --project=chromium --project=mobile-chromium --update-snapshots",
+    "test:e2e:visual:update": "npm run build && PLAYWRIGHT_SUITE=visual playwright test --grep @visual --project=chromium --project=mobile-chromium --update-snapshots=all",
     "check:dependencies": "npm ls --all",
     "check:licenses": "node tools/check-licenses.mjs",
     "scan:secrets": "node tools/scan-secrets.mjs",

@@ -13,7 +13,7 @@ permissions:
 
 env:
   NEXT_TELEMETRY_DISABLED: 1
-  PUBLIC_APP_ORIGIN: https://merriloop.example
+  PUBLIC_APP_ORIGIN: https://learn.okapi.example
   SESSION_SECRET: a-fictional-ci-secret-that-is-at-least-32-bytes
   ENABLE_AUDIO_PLAYBACK: "false"
   ENABLE_VIDEO_PLAYBACK: "false"

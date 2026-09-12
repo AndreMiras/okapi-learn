@@ -31,11 +31,11 @@ describe("getSessionStore", () => {
     vi.stubEnv("KV_REST_API_URL", "");
     vi.stubEnv("KV_REST_API_TOKEN", "");
     vi.stubEnv("VERCEL", "");
-    globalThis.__merriloopSessionStore = undefined;
+    globalThis.__okapiLearnSessionStore = undefined;
   });
 
   afterEach(() => {
-    globalThis.__merriloopSessionStore = undefined;
+    globalThis.__okapiLearnSessionStore = undefined;
     vi.unstubAllEnvs();
   });
 
@@ -81,7 +81,7 @@ describe("getSessionStore", () => {
       issue: vi.fn(),
       read: vi.fn(),
     };
-    globalThis.__merriloopSessionStore = existing;
+    globalThis.__okapiLearnSessionStore = existing;
     vi.stubEnv("SESSION_SECRET", "invalid");
     const { getSessionStore } = await loadSessionModules();
 

@@ -23,6 +23,10 @@ test("renders the shell without external or tracking requests", async ({
   );
   expect(response.headers()["referrer-policy"]).toBe("no-referrer");
   await expect(page).toHaveURL(/\/login$/);
+  await expect(page).toHaveTitle("Sign in | Okapi Learn");
+  await expect(
+    page.getByRole("link", { name: "Okapi Learn home" }),
+  ).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
     "learning notebook",
   );

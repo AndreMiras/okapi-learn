@@ -11,7 +11,7 @@ import { SESSION_COOKIE_NAME, SessionCapacityError } from "@/lib/session/store";
 const MAX_BODY_BYTES = 4_096;
 
 declare global {
-  var __merriloopLoginLimiter: LoginRateLimiter | undefined;
+  var __okapiLearnLoginLimiter: LoginRateLimiter | undefined;
 }
 
 function errorResponse(error: string, status: number, retryAfter?: number) {
@@ -68,11 +68,11 @@ export async function POST(request: Request) {
   }
 
   const config = getServerConfig();
-  globalThis.__merriloopLoginLimiter ??= new LoginRateLimiter(
+  globalThis.__okapiLearnLoginLimiter ??= new LoginRateLimiter(
     config.sessionSecret,
   );
   if (
-    !globalThis.__merriloopLoginLimiter.allow(clientAddress(request), username)
+    !globalThis.__okapiLearnLoginLimiter.allow(clientAddress(request), username)
   ) {
     return errorResponse("try_later", 429, 60);
   }

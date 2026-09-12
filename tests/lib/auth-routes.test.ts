@@ -40,8 +40,8 @@ beforeEach(() => {
   vi.stubEnv("PUBLIC_APP_ORIGIN", origin);
   vi.stubEnv("SESSION_SECRET", secret);
   vi.stubEnv("SESSION_TTL_SECONDS", "3600");
-  globalThis.__merriloopSessionStore = undefined;
-  globalThis.__merriloopLoginLimiter = undefined;
+  globalThis.__okapiLearnSessionStore = undefined;
+  globalThis.__okapiLearnLoginLimiter = undefined;
 });
 
 describe("login Route Handler", () => {
@@ -60,7 +60,7 @@ describe("login Route Handler", () => {
     expect(cookie).toContain("SameSite=lax");
     expect(cookie).not.toContain(FICTIONAL_TOKEN);
     expect(cookie).not.toContain("learner-nova");
-    const retained = JSON.stringify(globalThis.__merriloopSessionStore);
+    const retained = JSON.stringify(globalThis.__okapiLearnSessionStore);
     expect(retained).not.toContain(FICTIONAL_PASSWORD);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
   });
@@ -102,7 +102,7 @@ describe("login Route Handler", () => {
       expect(response.status).toBe(403);
       expect(await response.json()).toEqual({ error: code });
       expect(response.headers.get("set-cookie")).toBeNull();
-      expect(globalThis.__merriloopSessionStore?.size ?? 0).toBe(0);
+      expect(globalThis.__okapiLearnSessionStore?.size ?? 0).toBe(0);
     },
   );
 
@@ -144,7 +144,7 @@ describe("login Route Handler", () => {
 describe("logout Route Handler", () => {
   it("deletes local state before one best-effort upstream call and is idempotent", async () => {
     const store = new MemorySessionStore({ secret, ttlSeconds: 60 });
-    globalThis.__merriloopSessionStore = store;
+    globalThis.__okapiLearnSessionStore = store;
     const issued = store.issue(
       normalizeAuthenticationResponse(syntheticAuthenticationResponse()),
     );
