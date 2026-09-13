@@ -68,6 +68,12 @@ export default async function RootLayout({
         </main>
         <footer className="mx-auto w-[min(calc(100%-2rem),76rem)] border-t border-[#16324f26] pt-6 pb-8 text-sm max-[420px]:w-[min(calc(100%-1.25rem),76rem)]">
           <p className="m-0 max-w-3xl">{shell.nonAffiliation}</p>
+          <a
+            className="mt-2 inline-flex min-h-11 items-center font-bold underline underline-offset-4 focus-visible:rounded focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-[#dd796f]"
+            href="https://github.com/okapi-learn"
+          >
+            {shell.repositoryLink}
+          </a>
         </footer>
       </body>
     </html>

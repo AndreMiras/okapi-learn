@@ -30,6 +30,7 @@ export const englishMessages = {
     nonAffiliation:
       "Okapi Learn is an independent, unofficial client. It is not affiliated with, endorsed by, or operated by Kids&Us.",
     primaryNavigation: "Primary navigation",
+    repositoryLink: "Code and issues on GitHub",
     skipLink: "Skip to main content",
   },
 } as const;

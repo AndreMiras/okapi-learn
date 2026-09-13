@@ -31,6 +31,14 @@ test("renders the shell without external or tracking requests", async ({
     "learning notebook",
   );
   await expect(page.getByText("independent, unofficial client")).toBeVisible();
+  const repositoryLink = page.getByRole("link", {
+    name: "Code and issues on GitHub",
+  });
+  await expect(repositoryLink).toHaveCount(1);
+  await expect(repositoryLink).toHaveAttribute(
+    "href",
+    "https://github.com/okapi-learn",
+  );
   await page.getByRole("link", { name: "About" }).click();
   await expect(page).toHaveURL(/\/about$/);
   expect(externalRequests).toEqual([]);
