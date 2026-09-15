@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { normalizeAuthenticationResponse } from "@/lib/mylocker/normalize";
-import { selectLearner, selectMedia } from "@/lib/session/selectors";
+import {
+  isVideoViewedByLearner,
+  selectLearner,
+  selectMedia,
+  selectVideoGame,
+} from "@/lib/session/selectors";
 import { MemorySessionStore } from "@/lib/session/store";
 import { syntheticAuthenticationResponse } from "@/tests/fixtures/upstream";
 
@@ -18,15 +23,23 @@ function createSession(seed = 0) {
     {
       ...input.Courses[0]!.Videos[0]!,
       Orden: 1,
+      GameId: "game-first-video",
+      GameId2: null,
+      GameId3: null,
       Title: "First by order",
       VideoId: "video-first",
-    },
+      ViewedBy: [],
+    } as any,
     {
       ...input.Courses[0]!.Videos[0]!,
       Orden: 2,
+      GameId: "game-second-video",
+      GameId2: null,
+      GameId3: null,
       Title: "Second stable item",
       VideoId: "video-second",
-    },
+      ViewedBy: [],
+    } as any,
   );
   const issued = store.issue(normalizeAuthenticationResponse(input));
   return store.read(issued.cookieValue)!;
@@ -46,6 +59,69 @@ describe("session selectors", () => {
     expect(selectMedia(session, learner.alias, media.alias)?.media.title).toBe(
       "First by order",
     );
+  });
+
+  it("selects a game only through the exact learner-video relationship", () => {
+    const session = createSession();
+    const learner = session.learners[0]!;
+    const videos = session.courses[0]!.videos;
+    const first = videos[0]!;
+    const moonlight = videos[1]!;
+    const game = moonlight.games[0]!;
+
+    expect(
+      selectVideoGame(session, learner.alias, moonlight.alias, game.alias)
+        ?.game,
+    ).toEqual(game);
+    expect(
+      selectVideoGame(session, learner.alias, first.alias, game.alias),
+    ).toBeNull();
+    expect(
+      selectVideoGame(session, learner.alias, moonlight.alias, game.id),
+    ).toBeNull();
+    expect(
+      selectVideoGame(session, learner.alias, moonlight.alias, "missing"),
+    ).toBeNull();
+    const otherSession = createSession(20);
+    expect(
+      selectVideoGame(
+        session,
+        learner.alias,
+        moonlight.alias,
+        otherSession.courses[0]!.videos[1]!.games[0]!.alias,
+      ),
+    ).toBeNull();
+
+    const duplicateGame = { ...game, alias: "duplicate-game-alias" };
+    const malformed = {
+      ...session,
+      courses: [
+        {
+          ...session.courses[0]!,
+          videos: [
+            first,
+            { ...moonlight, games: [duplicateGame, duplicateGame] },
+            videos[2]!,
+          ],
+        },
+      ],
+    };
+    expect(
+      selectVideoGame(
+        malformed,
+        learner.alias,
+        moonlight.alias,
+        duplicateGame.alias,
+      ),
+    ).toBeNull();
+  });
+
+  it("computes learner-specific video reveal without exposing the viewed list", () => {
+    const session = createSession();
+    const learner = session.learners[0]!;
+    const [unviewed, viewed] = session.courses[0]!.videos;
+    expect(isVideoViewedByLearner(learner, unviewed!)).toBe(false);
+    expect(isVideoViewedByLearner(learner, viewed!)).toBe(true);
   });
 
   it.each(["learner-nova", "missing", "", "../course-orbit"])(

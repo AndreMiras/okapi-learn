@@ -8,14 +8,25 @@ import type { AddressInfo } from "node:net";
 export const FICTIONAL_USERNAME = "family@example.test";
 export const FICTIONAL_PASSWORD = "fictional-passphrase";
 export const FICTIONAL_TOKEN = "fictional-upstream-token";
+export const FICTIONAL_GAME_IDS = Object.freeze([
+  "game-starlight",
+  "game-comet",
+  "game-constellation",
+]);
+export const FICTIONAL_GAME_PACKAGE_BYTES = new Uint8Array([
+  0x50, 0x4b, 0x03, 0x04,
+]);
 export const E2E_FORBIDDEN_BROWSER_VALUES = Object.freeze([
   FICTIONAL_PASSWORD,
   FICTIONAL_TOKEN,
   "learner-nova",
   "learner-milo",
+  "learner-lyra",
   "course-orbit",
   "course-garden",
   "video-moonlight",
+  "video-comet",
+  ...FICTIONAL_GAME_IDS,
   "audio-rain",
   "Fictional-Surname",
   "2017-01-01",
@@ -79,12 +90,21 @@ export function syntheticAuthenticationResponse() {
           {
             Description: "A fictional trip through the stars.",
             Duration: "03:15",
+            GameId: FICTIONAL_GAME_IDS[0],
+            GameId2: FICTIONAL_GAME_IDS[1],
+            GameId3: FICTIONAL_GAME_IDS[2],
+            GameViewedBy: ["game-progress-must-be-dropped"],
             Orden: 2,
             Title: "Moonlight Story",
             UrlVideo: "https://media.example.test/video.mp4?grant=fictional",
             VideoId: "video-moonlight",
-            ViewedBy: ["private-learner-id-that-must-be-dropped"],
+            ViewedBy: [
+              "learner-nova",
+              "private-learner-id-that-must-be-dropped",
+            ],
             ZipUrl: "https://games.example.test/ignored.zip",
+            ZipUrl2: "https://games.example.test/ignored-2.zip",
+            ZipUrl3: "https://games.example.test/ignored-3.zip",
           },
         ],
       },
@@ -112,6 +132,37 @@ export function syntheticAuthenticationResponse() {
 
 function responseForUsername(username: string): unknown {
   const base = syntheticAuthenticationResponse();
+  if (username === "flow-game-reveal@example.test") {
+    return {
+      ...base,
+      Courses: [
+        {
+          ...base.Courses[0],
+          Videos: [
+            ...base.Courses[0]!.Videos,
+            {
+              ...base.Courses[0]!.Videos[0],
+              GameId: FICTIONAL_GAME_IDS[0],
+              GameId2: null,
+              GameId3: null,
+              Orden: 3,
+              Title: "Unopened Comet Story",
+              VideoId: "video-comet",
+              ViewedBy: [],
+            },
+          ],
+        },
+      ],
+      Students: [
+        ...base.Students,
+        {
+          CourseId: "course-orbit",
+          Name: "Lyra",
+          StudentId: "learner-lyra",
+        },
+      ],
+    };
+  }
   if (username === E2E_USERS.media || username.startsWith("flow-media-")) {
     return {
       ...base,
@@ -263,11 +314,52 @@ function respond(
 export async function startSyntheticUpstream(
   scenario: FixtureScenario = "success",
   requestedPort = 0,
+  gamePackageOrigin?: string,
 ) {
   const ledger: LedgerEntry[] = [];
   const server = createServer(async (request, response) => {
     if (request.method === "GET" && request.url === "/__fixture__/ledger") {
       return respond(response, 200, JSON.stringify(ledger));
+    }
+    const gameId = request.url?.startsWith("/api/Alumnes/GetGame/")
+      ? decodeURIComponent(request.url.slice("/api/Alumnes/GetGame/".length))
+      : null;
+    if (request.method === "GET" && gameId !== null) {
+      const gameIndex = FICTIONAL_GAME_IDS.indexOf(gameId);
+      const accepted =
+        Boolean(gamePackageOrigin) &&
+        gameIndex >= 0 &&
+        request.headers.accept ===
+          "application/octet-stream, application/zip" &&
+        request.headers["cache-control"] === "no-store" &&
+        request.headers.authorization === undefined &&
+        request.headers.cookie === undefined &&
+        request.headers.forwarded === undefined &&
+        request.headers["x-forwarded-for"] === undefined &&
+        request.headers.referer === undefined;
+      ledger.push(
+        Object.freeze({
+          accepted,
+          fieldNames: Object.freeze([]),
+          headerNames: Object.freeze(Object.keys(request.headers).sort()),
+          method: request.method,
+          path: request.url ?? "",
+        }),
+      );
+      if (!accepted) {
+        return respond(
+          response,
+          400,
+          JSON.stringify({ category: "invalid_fixture_request" }),
+        );
+      }
+      const objectNames = ["mixed", "unsupported", "retry-malformed"];
+      response.writeHead(302, {
+        "Cache-Control": "no-store",
+        Location: `${gamePackageOrigin}/objects/${objectNames[gameIndex]}.zip`,
+      });
+      response.end();
+      return;
     }
     const body = await readJson(request);
     const fieldNames =
@@ -370,5 +462,105 @@ export async function startSyntheticUpstream(
     baseUrl: `http://127.0.0.1:${port}`,
     ledger,
     close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+  });
+}
+
+export async function startSyntheticGameDelivery() {
+  const apiLedger: LedgerEntry[] = [];
+  const packageLedger: LedgerEntry[] = [];
+  const packageServer = createServer((request, response) => {
+    const headerNames = Object.keys(request.headers).sort();
+    const accepted =
+      request.method === "GET" &&
+      request.url === "/objects/fictional-game.zip" &&
+      request.headers.accept === "application/octet-stream, application/zip" &&
+      request.headers["cache-control"] === "no-store" &&
+      request.headers.authorization === undefined &&
+      request.headers.cookie === undefined &&
+      request.headers.forwarded === undefined &&
+      request.headers["x-forwarded-for"] === undefined &&
+      request.headers.referer === undefined;
+    packageLedger.push(
+      Object.freeze({
+        accepted,
+        fieldNames: Object.freeze([]),
+        headerNames: Object.freeze(headerNames),
+        method: request.method ?? "",
+        path: request.url ?? "",
+      }),
+    );
+    if (!accepted) {
+      respond(
+        response,
+        400,
+        JSON.stringify({ error: "invalid_fixture_request" }),
+      );
+      return;
+    }
+    response.writeHead(200, {
+      "Cache-Control": "no-store",
+      "Content-Length": FICTIONAL_GAME_PACKAGE_BYTES.byteLength,
+      "Content-Type": "application/zip",
+    });
+    response.end(Buffer.from(FICTIONAL_GAME_PACKAGE_BYTES));
+  });
+  await new Promise<void>((resolve, reject) => {
+    packageServer.once("error", reject);
+    packageServer.listen(0, "127.0.0.1", resolve);
+  });
+  const packagePort = (packageServer.address() as AddressInfo).port;
+  const packageOrigin = `http://127.0.0.1:${packagePort}`;
+
+  const apiServer = createServer((request, response) => {
+    const headerNames = Object.keys(request.headers).sort();
+    const accepted =
+      request.method === "GET" &&
+      request.url === `/api/Alumnes/GetGame/${FICTIONAL_GAME_IDS[0]}` &&
+      request.headers.accept === "application/octet-stream, application/zip" &&
+      request.headers["cache-control"] === "no-store" &&
+      request.headers.authorization === undefined &&
+      request.headers.cookie === undefined &&
+      request.headers.forwarded === undefined &&
+      request.headers["x-forwarded-for"] === undefined &&
+      request.headers.referer === undefined;
+    apiLedger.push(
+      Object.freeze({
+        accepted,
+        fieldNames: Object.freeze([]),
+        headerNames: Object.freeze(headerNames),
+        method: request.method ?? "",
+        path: request.url ?? "",
+      }),
+    );
+    if (!accepted) {
+      respond(
+        response,
+        400,
+        JSON.stringify({ error: "invalid_fixture_request" }),
+      );
+      return;
+    }
+    response.writeHead(302, {
+      "Cache-Control": "no-store",
+      Location: `${packageOrigin}/objects/fictional-game.zip`,
+    });
+    response.end();
+  });
+  await new Promise<void>((resolve, reject) => {
+    apiServer.once("error", reject);
+    apiServer.listen(0, "127.0.0.1", resolve);
+  });
+  const apiPort = (apiServer.address() as AddressInfo).port;
+
+  return Object.freeze({
+    apiLedger,
+    apiOrigin: `http://127.0.0.1:${apiPort}`,
+    close: () =>
+      Promise.all([
+        new Promise<void>((resolve) => apiServer.close(() => resolve())),
+        new Promise<void>((resolve) => packageServer.close(() => resolve())),
+      ]).then(() => undefined),
+    packageLedger,
+    packageOrigin,
   });
 }

@@ -20,6 +20,14 @@ describe("normalizeAuthenticationResponse", () => {
     expect(normalized.learners[0]?.name).toBe("Nóva 星");
     expect(normalized.courses[0]?.name).toBe("Òrbita");
     expect(normalized.courses[0]?.videos[0]?.title).toBe("Lluna 🌙");
+    expect(normalized.courses[0]?.videos[0]?.games).toEqual([
+      { id: "game-starlight", slot: 1 },
+      { id: "game-comet", slot: 2 },
+      { id: "game-constellation", slot: 3 },
+    ]);
+    expect(normalized.courses[0]?.videos[0]?.viewedByLearnerIds).toEqual([
+      "learner-nova",
+    ]);
     const retained = JSON.stringify(normalized);
     for (const excluded of [
       "Surname",
@@ -27,13 +35,64 @@ describe("normalizeAuthenticationResponse", () => {
       "DateOfBirth",
       "UrlPhoto",
       "GameMap",
-      "ViewedBy",
+      "GameViewedBy",
+      "game-progress-must-be-dropped",
       "ZipUrl",
       "nivellId",
       "unknownRoot",
     ]) {
       expect(retained).not.toContain(excluded);
     }
+  });
+
+  it("retains bounded video relationships while audio relationships stay empty", () => {
+    const input: any = response();
+    input.Courses[0].Audios = [
+      {
+        AudioId: "audio-safe",
+        Description: null,
+        Duration: null,
+        GameId: "ignored-audio-game",
+        Orden: 1,
+        Title: "Safe audio",
+        UrlAudio: null,
+        ViewedBy: "ignored-audio-view-state",
+      },
+    ];
+    const course = normalizeAuthenticationResponse(input).courses[0]!;
+    expect(course.audios[0]).toMatchObject({
+      games: [],
+      viewedByLearnerIds: [],
+    });
+    expect(JSON.stringify(course)).not.toContain("ignored-audio");
+  });
+
+  it("accepts absent game slots and drops viewed references outside the course", () => {
+    const input: any = response();
+    input.Courses[0].Videos[0].GameId = "";
+    input.Courses[0].Videos[0].GameId2 = null;
+    delete input.Courses[0].Videos[0].GameId3;
+    input.Courses[0].Videos[0].ViewedBy = ["unknown-learner"];
+    expect(
+      normalizeAuthenticationResponse(input).courses[0]?.videos[0],
+    ).toMatchObject({ games: [], viewedByLearnerIds: [] });
+  });
+
+  it.each([
+    (input: any) => (input.Courses[0].Videos[0].GameId2 = "game-starlight"),
+    (input: any) => (input.Courses[0].Videos[0].GameId = 42),
+    (input: any) =>
+      (input.Courses[0].Videos[0].ViewedBy = ["learner-nova", "learner-nova"]),
+    (input: any) => (input.Courses[0].Videos[0].ViewedBy = "learner-nova"),
+    (input: any) =>
+      (input.Courses[0].Videos[0].ViewedBy = Array.from(
+        { length: 17 },
+        (_, index) => `learner-${index}`,
+      )),
+  ])("rejects malformed video game or viewed relationships", (mutate) => {
+    const input = response();
+    mutate(input);
+    expect(() => normalizeAuthenticationResponse(input)).toThrow(UpstreamError);
   });
 
   it("accepts omitted Games, nullable unknown fields, and missing media collections", () => {

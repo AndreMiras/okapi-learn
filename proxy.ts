@@ -4,25 +4,24 @@ import { getServerConfig } from "@/lib/config/server";
 import { createContentSecurityPolicy } from "@/lib/security/headers";
 
 export function proxy(request: NextRequest) {
-  const mediaOrigins =
-    request.nextUrl.pathname === "/api/health"
-      ? []
-      : (() => {
-          const serverConfig = getServerConfig();
-          return [
-            ...(serverConfig.audioPlaybackEnabled
-              ? serverConfig.allowedAudioOrigins
-              : []),
-            ...(serverConfig.videoPlaybackEnabled
-              ? serverConfig.allowedVideoOrigins
-              : []),
-          ];
-        })();
+  const serverConfig =
+    request.nextUrl.pathname === "/api/health" ? null : getServerConfig();
+  const mediaOrigins = serverConfig
+    ? [
+        ...(serverConfig.audioPlaybackEnabled
+          ? serverConfig.allowedAudioOrigins
+          : []),
+        ...(serverConfig.videoPlaybackEnabled
+          ? serverConfig.allowedVideoOrigins
+          : []),
+      ]
+    : [];
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const policy = createContentSecurityPolicy(
     nonce,
     process.env.NODE_ENV === "development",
     mediaOrigins,
+    serverConfig?.gamePlaybackEnabled ?? false,
   );
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("Content-Security-Policy", policy);

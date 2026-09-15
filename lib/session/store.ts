@@ -7,11 +7,16 @@ import type {
   NormalizedMedia,
 } from "@/lib/mylocker/types";
 
-import type { SessionCourse, SessionMedia, SessionRecord } from "./types";
+import type {
+  SessionCourse,
+  SessionGameLink,
+  SessionMedia,
+  SessionRecord,
+} from "./types";
 
 export const SESSION_COOKIE_NAME = "merriloop_session";
 export const MAX_ACTIVE_SESSIONS = 500;
-const COOKIE_VERSION = "v1";
+const COOKIE_VERSION = "v2";
 
 export type IssuedSession = Readonly<{
   cookieValue: string;
@@ -92,8 +97,20 @@ export class MemorySessionStore {
     const expiresAt = issuedAt + this.#ttlMilliseconds;
     const sessionId = this.#random(32).toString("base64url");
     const alias = () => this.#random(18).toString("base64url");
-    const projectMedia = (item: NormalizedMedia): SessionMedia =>
-      Object.freeze({ ...item, alias: alias() });
+    const gameAliases = new Map<string, string>();
+    const projectMedia = (item: NormalizedMedia): SessionMedia => {
+      const games: readonly SessionGameLink[] = Object.freeze(
+        item.games.map((game) => {
+          let gameAlias = gameAliases.get(game.id);
+          if (!gameAlias) {
+            gameAlias = alias();
+            gameAliases.set(game.id, gameAlias);
+          }
+          return Object.freeze({ ...game, alias: gameAlias });
+        }),
+      );
+      return Object.freeze({ ...item, alias: alias(), games });
+    };
     const courses: readonly SessionCourse[] = Object.freeze(
       graph.courses.map((course) =>
         Object.freeze({

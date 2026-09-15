@@ -8,8 +8,10 @@ import {
 
 const validEnvironment = {
   ALLOWED_AUDIO_ORIGINS: "",
+  ALLOWED_GAME_ORIGINS: "",
   ALLOWED_VIDEO_ORIGINS: "",
   ENABLE_AUDIO_PLAYBACK: "false",
+  ENABLE_GAME_PLAYBACK: "false",
   ENABLE_VIDEO_PLAYBACK: "false",
   MYLOCKER_API_BASE_URL: "https://api.kidsandus.es",
   NODE_ENV: "production",
@@ -22,6 +24,8 @@ describe("parseServerConfig", () => {
   it("accepts the secure media-disabled production configuration", () => {
     expect(parseServerConfig(validEnvironment)).toMatchObject({
       audioPlaybackEnabled: false,
+      gamePlaybackEnabled: false,
+      production: true,
       sessionTtlSeconds: MAX_SESSION_TTL_SECONDS,
       videoPlaybackEnabled: false,
     });
@@ -82,10 +86,23 @@ describe("parseServerConfig", () => {
   it.each([
     ["ENABLE_VIDEO_PLAYBACK", "Video"],
     ["ENABLE_AUDIO_PLAYBACK", "Audio"],
+    ["ENABLE_GAME_PLAYBACK", "Game"],
   ])("rejects enabled playback without an allowlist", (flag, mediaType) => {
     expect(() =>
       parseServerConfig({ ...validEnvironment, [flag]: "true" }),
     ).toThrow(mediaType);
+  });
+
+  it("keeps game approval independent and deduplicates exact origins", () => {
+    const config = parseServerConfig({
+      ...validEnvironment,
+      ALLOWED_GAME_ORIGINS:
+        "https://packages.example, https://packages.example",
+      ENABLE_GAME_PLAYBACK: "true",
+    });
+    expect(config.allowedGameOrigins).toEqual(["https://packages.example"]);
+    expect(config.allowedAudioOrigins).toEqual([]);
+    expect(config.allowedVideoOrigins).toEqual([]);
   });
 
   it("accepts only HTTPS media origins and removes duplicates", () => {
@@ -125,6 +142,15 @@ describe("parseServerConfig", () => {
     ).toThrow(/cookie hostname|default HTTPS port/);
   });
 
+  it("rejects game origins that could receive the application cookie", () => {
+    expect(() =>
+      parseServerConfig({
+        ...validEnvironment,
+        ALLOWED_GAME_ORIGINS: "https://learn.okapi.example",
+      }),
+    ).toThrow(/cookie hostname/);
+  });
+
   it.each([
     "https://user:pass@media.example",
     "https://media.example/path",
@@ -136,6 +162,22 @@ describe("parseServerConfig", () => {
       parseServerConfig({
         ...validEnvironment,
         ALLOWED_VIDEO_ORIGINS: origin,
+      }),
+    ).toThrow();
+  });
+
+  it.each([
+    "http://packages.example",
+    "https://user:pass@packages.example",
+    "https://packages.example/path",
+    "https://packages.example?grant=value",
+    "https://packages.example#fragment",
+    "https://packages.example:444",
+  ])("rejects unsafe production game origin %s", (origin) => {
+    expect(() =>
+      parseServerConfig({
+        ...validEnvironment,
+        ALLOWED_GAME_ORIGINS: origin,
       }),
     ).toThrow();
   });

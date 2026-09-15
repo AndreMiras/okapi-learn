@@ -1,14 +1,22 @@
 import type { MediaKind } from "@/lib/mylocker/types";
 
+export type SessionGameLink = Readonly<{
+  alias: string;
+  id: string;
+  slot: 1 | 2 | 3;
+}>;
+
 export type SessionMedia = Readonly<{
   alias: string;
   description: string | null;
   duration: string | null;
+  games: readonly SessionGameLink[];
   id: string;
   kind: MediaKind;
   order: number;
   title: string;
   url: string | null;
+  viewedByLearnerIds: readonly string[];
 }>;
 
 export type SessionCourse = Readonly<{

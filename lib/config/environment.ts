@@ -3,9 +3,12 @@ export const DEFAULT_API_ORIGIN = "https://api.kidsandus.es";
 
 export type ServerConfig = Readonly<{
   allowedAudioOrigins: readonly string[];
+  allowedGameOrigins: readonly string[];
   allowedVideoOrigins: readonly string[];
   apiBaseUrl: string;
   audioPlaybackEnabled: boolean;
+  gamePlaybackEnabled: boolean;
+  production: boolean;
   publicAppOrigin: string;
   sessionSecret: string;
   sessionTtlSeconds: number;
@@ -127,6 +130,11 @@ export function parseServerConfig(environment: Environment): ServerConfig {
     "ALLOWED_AUDIO_ORIGINS",
     production,
   );
+  const allowedGameOrigins = parseOrigins(
+    environment.ALLOWED_GAME_ORIGINS,
+    "ALLOWED_GAME_ORIGINS",
+    production,
+  );
   const videoPlaybackEnabled = parseBoolean(
     environment,
     "ENABLE_VIDEO_PLAYBACK",
@@ -135,6 +143,7 @@ export function parseServerConfig(environment: Environment): ServerConfig {
     environment,
     "ENABLE_AUDIO_PLAYBACK",
   );
+  const gamePlaybackEnabled = parseBoolean(environment, "ENABLE_GAME_PLAYBACK");
 
   if (videoPlaybackEnabled && allowedVideoOrigins.length === 0) {
     throw new ConfigurationError("Video playback requires an allowed origin");
@@ -142,20 +151,30 @@ export function parseServerConfig(environment: Environment): ServerConfig {
   if (audioPlaybackEnabled && allowedAudioOrigins.length === 0) {
     throw new ConfigurationError("Audio playback requires an allowed origin");
   }
+  if (gamePlaybackEnabled && allowedGameOrigins.length === 0) {
+    throw new ConfigurationError("Game playback requires an allowed origin");
+  }
   const applicationHostname = new URL(publicAppOrigin).hostname;
-  for (const origin of [...allowedVideoOrigins, ...allowedAudioOrigins]) {
+  for (const origin of [
+    ...allowedVideoOrigins,
+    ...allowedAudioOrigins,
+    ...allowedGameOrigins,
+  ]) {
     if (new URL(origin).hostname === applicationHostname) {
       throw new ConfigurationError(
-        "Media origins must not share the application cookie hostname",
+        "External content origins must not share the application cookie hostname",
       );
     }
   }
 
   return Object.freeze({
     allowedAudioOrigins,
+    allowedGameOrigins,
     allowedVideoOrigins,
     apiBaseUrl,
     audioPlaybackEnabled,
+    gamePlaybackEnabled,
+    production,
     publicAppOrigin,
     sessionSecret,
     sessionTtlSeconds,

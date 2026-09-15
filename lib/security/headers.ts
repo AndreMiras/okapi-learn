@@ -4,14 +4,19 @@ export function createContentSecurityPolicy(
   nonce: string,
   development: boolean,
   mediaOrigins: readonly string[] = [],
+  gamePlaybackEnabled = false,
 ): string {
   const developmentEval = development ? " 'unsafe-eval'" : "";
   const styleSource = development
     ? "'self' 'unsafe-inline'"
     : `'self' 'nonce-${nonce}'`;
-  const mediaSource = mediaOrigins.length
-    ? [...new Set(mediaOrigins)].join(" ")
-    : "'none'";
+  const mediaSources = [
+    ...new Set([...mediaOrigins, ...(gamePlaybackEnabled ? ["blob:"] : [])]),
+  ];
+  const mediaSource = mediaSources.length ? mediaSources.join(" ") : "'none'";
+  const imageSource = gamePlaybackEnabled
+    ? "img-src 'self' data: blob:"
+    : "img-src 'self' data:";
   return [
     "default-src 'self'",
     "base-uri 'self'",
@@ -19,7 +24,7 @@ export function createContentSecurityPolicy(
     "font-src 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    "img-src 'self' data:",
+    imageSource,
     `media-src ${mediaSource}`,
     "object-src 'none'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${developmentEval}`,

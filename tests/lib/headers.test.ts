@@ -48,6 +48,17 @@ describe("createSecurityHeaders", () => {
     expect(policy).not.toContain("connect-src 'self' https://");
   });
 
+  it("permits only in-memory image and audio assets when games are enabled", () => {
+    const policy = createContentSecurityPolicy("nonce", false, [], true);
+    expect(policy).toContain("img-src 'self' data: blob:");
+    expect(policy).toContain("media-src blob:");
+    expect(policy).toContain("connect-src 'self'");
+    expect(policy).not.toContain("worker-src");
+
+    const disabled = createContentSecurityPolicy("nonce", false);
+    expect(disabled).not.toContain("blob:");
+  });
+
   it("sets HSTS only in production", () => {
     expect(asRecord(true)["Strict-Transport-Security"]).toContain(
       "max-age=31536000",

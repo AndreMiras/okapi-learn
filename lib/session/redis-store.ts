@@ -17,7 +17,7 @@ import {
 } from "./store";
 import type { SessionRecord } from "./types";
 
-const ENCRYPTION_VERSION = "v1";
+const ENCRYPTION_VERSION = "v2";
 const KEY_PREFIX = "merriloop:session:";
 
 type RedisSessionStoreOptions = Readonly<{

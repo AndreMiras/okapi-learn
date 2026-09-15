@@ -1,13 +1,20 @@
 export type MediaKind = "audio" | "video";
 
+export type NormalizedGameLink = Readonly<{
+  id: string;
+  slot: 1 | 2 | 3;
+}>;
+
 export type NormalizedMedia = Readonly<{
   description: string | null;
   duration: string | null;
+  games: readonly NormalizedGameLink[];
   id: string;
   kind: MediaKind;
   order: number;
   title: string;
   url: string | null;
+  viewedByLearnerIds: readonly string[];
 }>;
 
 export type NormalizedCourse = Readonly<{

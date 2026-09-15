@@ -57,6 +57,10 @@ describe("RedisSessionStore", () => {
     expect(
       (await secondInstance.read(issued.cookieValue))?.learners[0]?.name,
     ).toBe("Nova");
+    expect(
+      (await secondInstance.read(issued.cookieValue))?.courses[0]?.videos[0]
+        ?.games,
+    ).toHaveLength(3);
     expect((await secondInstance.delete(issued.cookieValue))?.token).toBe(
       "fictional-upstream-token",
     );
@@ -113,9 +117,10 @@ describe("RedisSessionStore", () => {
   });
 
   it.each([
-    "v2.nonce.tag.ciphertext",
-    "v1.nonce.tag",
-    "v1.nonce.tag.ciphertext.extra",
+    "v3.nonce.tag.ciphertext",
+    "v2.nonce.tag",
+    "v2.nonce.tag.ciphertext.extra",
+    "v1.nonce.tag.ciphertext",
   ])("rejects malformed encrypted record %s", async (encrypted) => {
     const redis = fakeRedis();
     const store = new RedisSessionStore({

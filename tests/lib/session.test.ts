@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+
 import { describe, expect, it, vi } from "vitest";
 
 import { normalizeAuthenticationResponse } from "@/lib/mylocker/normalize";
@@ -28,6 +30,7 @@ describe("MemorySessionStore", () => {
     const first = store.issue(graph());
     const second = store.issue(graph());
     expect(first.cookieValue).not.toBe(second.cookieValue);
+    expect(first.cookieValue).toMatch(/^v2\./);
     expect(first.cookieValue).not.toContain("learner-nova");
     expect(store.read(first.cookieValue)?.learners[0]?.name).toBe("Nova");
     expect(store.delete(first.cookieValue)?.token).toBe(
@@ -36,9 +39,53 @@ describe("MemorySessionStore", () => {
     expect(store.read(first.cookieValue)).toBeNull();
   });
 
+  it("projects reusable game aliases without exposing raw IDs in the cookie", () => {
+    const input = syntheticAuthenticationResponse();
+    input.Courses[0]!.Videos.push({
+      ...input.Courses[0]!.Videos[0]!,
+      GameId2: null,
+      GameId3: null,
+      VideoId: "video-shared-game",
+    } as any);
+    const store = new MemorySessionStore({
+      now: () => 1_000,
+      random: randomSequence(),
+      secret: "a-secret-long-enough-for-session-tests",
+      ttlSeconds: 60,
+    });
+    const issued = store.issue(normalizeAuthenticationResponse(input));
+    const session = store.read(issued.cookieValue)!;
+    const [first, second] = session.courses[0]!.videos;
+    expect(first!.games).toHaveLength(3);
+    expect(first!.games[0]!.alias).toBe(second!.games[0]!.alias);
+    expect(first!.games[0]!.alias).not.toBe(first!.games[0]!.id);
+    expect(issued.cookieValue).not.toContain("game-starlight");
+    expect(JSON.stringify(session)).not.toContain("ZipUrl");
+  });
+
+  it("rejects an otherwise valid cookie from the v1 format", () => {
+    const secret = "a-secret-long-enough-for-session-tests";
+    const store = new MemorySessionStore({
+      now: () => 1_000,
+      random: randomSequence(),
+      secret,
+      ttlSeconds: 60,
+    });
+    const issued = store.issue(graph());
+    const [, expiry, sessionId] = issued.cookieValue.split(".");
+    const payload = `v1.${expiry}.${sessionId}`;
+    const signingKey = createHmac("sha256", secret)
+      .update("merriloop-cookie-v1")
+      .digest();
+    const signature = createHmac("sha256", signingKey)
+      .update(payload)
+      .digest("base64url");
+    expect(store.read(`${payload}.${signature}`)).toBeNull();
+  });
+
   it.each([
     "",
-    "v2.61000.invalid.signature",
+    "v3.61000.invalid.signature",
     "v1.words.invalid.signature",
     "v1.61000.short.signature",
     "x".repeat(513),

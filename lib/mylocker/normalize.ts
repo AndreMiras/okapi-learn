@@ -3,6 +3,7 @@ import type {
   AuthenticationGraph,
   MediaKind,
   NormalizedCourse,
+  NormalizedGameLink,
   NormalizedLearner,
   NormalizedMedia,
 } from "./types";
@@ -11,6 +12,7 @@ import { normalizeServerHeldMediaUrl } from "./url-policy";
 const MAX_LEARNERS = 16;
 const MAX_COURSES = 32;
 const MAX_MEDIA_PER_KIND = 256;
+const MAX_VIEWED_BY = 16;
 const MAX_STRUCTURE_DEPTH = 12;
 const MAX_STRUCTURE_NODES = 25_000;
 const UNSAFE_CONTROL_CHARACTERS =
@@ -75,7 +77,45 @@ function assertStructuralBounds(root: unknown): void {
   }
 }
 
-function normalizeMedia(value: unknown, kind: MediaKind): NormalizedMedia {
+const GAME_FIELDS = [
+  ["GameId", 1],
+  ["GameId2", 2],
+  ["GameId3", 3],
+] as const;
+
+function normalizeGames(
+  value: Record<string, unknown>,
+): readonly NormalizedGameLink[] {
+  const ids = new Set<string>();
+  return Object.freeze(
+    GAME_FIELDS.flatMap(([key, slot]) => {
+      const source = value[key];
+      if (source === null || source === undefined || source === "") return [];
+      const id = boundedString(source, 256);
+      if (ids.has(id)) invalid();
+      ids.add(id);
+      return [Object.freeze({ id, slot })];
+    }),
+  );
+}
+
+function normalizeViewedBy(
+  value: unknown,
+  learnerIds: ReadonlySet<string>,
+): readonly string[] {
+  if (value === null || value === undefined) return Object.freeze([]);
+  const ids = boundedArray(value, MAX_VIEWED_BY).map((id) =>
+    boundedString(id, 256),
+  );
+  if (new Set(ids).size !== ids.length) invalid();
+  return Object.freeze(ids.filter((id) => learnerIds.has(id)));
+}
+
+function normalizeMedia(
+  value: unknown,
+  kind: MediaKind,
+  learnerIds: ReadonlySet<string>,
+): NormalizedMedia {
   if (!isRecord(value)) invalid();
   const idKey = kind === "audio" ? "AudioId" : "VideoId";
   const urlKey = kind === "audio" ? "UrlAudio" : "UrlVideo";
@@ -90,24 +130,32 @@ function normalizeMedia(value: unknown, kind: MediaKind): NormalizedMedia {
   return Object.freeze({
     description: optionalText(value.Description, 4_000),
     duration: optionalText(value.Duration, 100),
+    games: kind === "video" ? normalizeGames(value) : Object.freeze([]),
     id: boundedString(value[idKey], 256),
     kind,
     order: order as number,
     title: boundedString(value.Title, 500),
     url: normalizeServerHeldMediaUrl(value[urlKey]),
+    viewedByLearnerIds:
+      kind === "video"
+        ? normalizeViewedBy(value.ViewedBy, learnerIds)
+        : Object.freeze([]),
   });
 }
 
 function normalizeCourse(
   value: unknown,
   mediaIds: Set<string>,
+  learnerIdsByCourse: ReadonlyMap<string, ReadonlySet<string>>,
 ): NormalizedCourse {
   if (!isRecord(value)) invalid();
+  const id = boundedString(value.CourseId, 256);
+  const learnerIds = learnerIdsByCourse.get(id) ?? new Set<string>();
   const normalizeCollection = (key: "Audios" | "Videos", kind: MediaKind) => {
     const source =
       value[key] === null || value[key] === undefined ? [] : value[key];
     return boundedArray(source, MAX_MEDIA_PER_KIND).map((item) => {
-      const media = normalizeMedia(item, kind);
+      const media = normalizeMedia(item, kind, learnerIds);
       const qualifiedId = `${kind}:${media.id}`;
       if (mediaIds.has(qualifiedId)) invalid();
       mediaIds.add(qualifiedId);
@@ -116,7 +164,7 @@ function normalizeCourse(
   };
   return Object.freeze({
     audios: Object.freeze(normalizeCollection("Audios", "audio")),
-    id: boundedString(value.CourseId, 256),
+    id,
     name: boundedString(value.Name, 500),
     videos: Object.freeze(normalizeCollection("Videos", "video")),
   });
@@ -148,15 +196,21 @@ export function normalizeAuthenticationResponse(
     invalid();
   }
 
-  const mediaIds = new Set<string>();
-  const courses = boundedArray(value.Courses, MAX_COURSES).map((course) =>
-    normalizeCourse(course, mediaIds),
-  );
   const learners = boundedArray(value.Students, MAX_LEARNERS).map(
     normalizeLearner,
   );
-  uniqueById(courses);
   uniqueById(learners);
+  const learnerIdsByCourse = new Map<string, Set<string>>();
+  for (const learner of learners) {
+    const ids = learnerIdsByCourse.get(learner.courseId) ?? new Set<string>();
+    ids.add(learner.id);
+    learnerIdsByCourse.set(learner.courseId, ids);
+  }
+  const mediaIds = new Set<string>();
+  const courses = boundedArray(value.Courses, MAX_COURSES).map((course) =>
+    normalizeCourse(course, mediaIds, learnerIdsByCourse),
+  );
+  uniqueById(courses);
   const courseIds = new Set(courses.map(({ id }) => id));
   if (learners.some(({ courseId }) => !courseIds.has(courseId))) invalid();
 
