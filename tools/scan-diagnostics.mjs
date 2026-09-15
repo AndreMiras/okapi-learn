@@ -12,9 +12,14 @@ const prohibited = [
   "fictional-upstream-token",
   "learner-nova",
   "learner-milo",
+  "learner-lyra",
   "course-orbit",
   "course-garden",
   "video-moonlight",
+  "video-comet",
+  "game-starlight",
+  "game-comet",
+  "game-constellation",
   "audio-rain",
   "Fictional-Surname",
   "2017-01-01",
@@ -22,7 +27,20 @@ const prohibited = [
   "media.example.test",
   "images.example.test",
   "games.example.test",
+  "127.0.0.1:4300",
+  "/api/Alumnes/GetGame/",
+  "/objects/mixed.zip",
+  "/objects/unsupported.zip",
+  "/objects/retry-malformed.zip",
+  "blob:http://",
+  "blob:https://",
+  "dynamics/listen-all.json",
+  "images/amber.png",
+  "audio/prompt.mp3",
+  '"selectableElements"',
+  '"waitSeconds"',
 ];
+const prohibitedBytes = [Buffer.from([0x50, 0x4b, 0x03, 0x04])];
 const findings = [];
 function scan(path, visual) {
   if (!existsSync(path)) return;
@@ -39,6 +57,9 @@ function scan(path, visual) {
     }
   }
   const value = readFileSync(path);
+  if (prohibitedBytes.some((bytes) => value.includes(bytes))) {
+    findings.push(`${path}: package byte signature`);
+  }
   for (const marker of prohibited) {
     if (value.toString("utf8").toLowerCase().includes(marker.toLowerCase())) {
       findings.push(`${path}: ${marker}`);

@@ -23,7 +23,7 @@ The applications share an umbrella identity, not an API or session. Okapi Learn 
 - Credentials are sent once from the browser to this server and exchanged with the fixed MyLocker API. Passwords are never retained or replayed.
 - The upstream token and minimized learner/catalog graph remain in process memory. The browser receives only an opaque authenticated `HttpOnly` session cookie.
 - Sessions have a non-sliding lifetime of at most eight hours. Restarting the single server process signs everyone out.
-- Stored learner data is limited to a display name and the relationships needed to select an owned catalog. Surnames, birth dates, photos, progress, games, and unknown response fields are discarded.
+- Stored learner data is limited to a display name and the relationships needed to select an owned catalog. Videos may retain up to three linked game IDs and validated viewed-learner references; the browser receives only random aliases and a safe viewed boolean. Surnames, birth dates, photos, game maps/sections/URLs/progress, and unknown response fields are discarded.
 - Personalized pages are private and `no-store`. There is no analytics, advertising, session replay, or production payload tracing.
 - Sign out, then sign in again to refresh the catalog. Okapi Learn does not silently refresh with a retained password.
 
@@ -32,6 +32,23 @@ The applications share an umbrella identity, not an API or session. Okapi Learn 
 Catalog metadata is available without playback. Production audio and video are independently disabled by default and must remain disabled until the corresponding entitlement, licensing, browser, codec, range, redirect, URL-lifetime, and exact-origin review is approved.
 
 When an approved direct-media gate is enabled, the selected URL is disclosed to the authorized browser and used only by a native `<audio>` or `<video>` element. Okapi Learn does not proxy, download, transform, cache, or persist playback progress. Synthetic loopback media exists only for automated browser verification.
+
+## Video-linked activities
+
+Okapi Learn includes a bounded clean-room runtime for complete video-linked
+packages containing only `LISTEN`, `EXPLORE`, and `WILDCARD`. Production package
+retrieval is independently disabled by default. Operators can enable it for
+authorized accounts by configuring the exact package redirect origin.
+
+After explicit selection, the browser requests an alias-only same-origin route.
+The server validates ownership, follows one approved package redirect, and
+returns a bounded private/no-store ZIP without exposing upstream IDs or URLs. The
+browser validates and extracts the package in memory, uses revocable Blob URLs,
+and releases it on completion, exit, logout, expiry, failure, or unmount. No
+package, compatibility result, reveal state, or completion is stored in browser
+storage, Redis, caches, or the filesystem. Okapi Learn does not call
+`RegisterActivity`; reveal and completion apply only to the current browser visit
+or play and are not official progress.
 
 ## Local development
 
@@ -92,7 +109,7 @@ The MVP supports one self-hosted Node process behind an HTTPS reverse proxy. It 
 
 ## Known limits
 
-Okapi Learn does not implement games, downloads, offline or background playback, casting, learner photos, push notifications, books, progress reporting, terms acceptance, or activation claims. Pending terms and tester modes fail closed and must be handled through an official channel.
+Eight game dynamic types (`BOARD`, `MEMORY`, `GRID`, `CONNECT`, `DIFFERENCES`, `PAINT`, `DRAGCONTAINER`, and `FILLTHEGAP`) remain unsupported, as do game maps/sections, books, durable progress, downloads, offline or background playback, casting, learner photos, push notifications, terms acceptance, activation claims, and full official-engine parity. Pending terms and tester modes fail closed and must be handled through an official channel.
 
 English is the only enabled interface locale. Spanish and Catalan require complete human review before release.
 

@@ -10,9 +10,16 @@ const prohibitedExtensions = new Set([
   ".mp4",
   ".png",
   ".webm",
+  ".zip",
 ]);
+const prohibitedGameDescriptorPath =
+  /(?:^|\/)(?:game\.json|(?:dynamics?|game-descriptors?)\/[^/]+\.json)$/i;
 const findings = [];
 for (const path of repositoryFiles()) {
+  if (prohibitedGameDescriptorPath.test(path)) {
+    findings.push(`${path}: prohibited game descriptor artifact`);
+    continue;
+  }
   if (prohibitedExtensions.has(extname(path).toLowerCase())) {
     if (!(
       path.startsWith("tests/e2e/visual.spec.ts-snapshots/") &&

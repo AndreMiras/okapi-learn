@@ -12,6 +12,15 @@ const prohibited = [
   "AutenticateUser",
   "merriloop_session=",
   "authorization: basic",
+  "127.0.0.1:4300",
+  "/objects/mixed.zip",
+  "/api/Alumnes/GetGame/",
+  "blob:http://",
+  "dynamics/listen-all.json",
+  "images/amber.png",
+  "audio/prompt.mp3",
+  '"selectableElements"',
+  '"waitSeconds"',
   ...E2E_FORBIDDEN_BROWSER_VALUES,
 ];
 
@@ -65,5 +74,18 @@ describe("diagnostics scanner", () => {
     const result = scan("test-results-visual");
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("unsupported visual artifact extension");
+  });
+
+  it("rejects embedded package bytes", () => {
+    mkdirSync(join(temporaryDirectory, "diagnostics"));
+    writeFileSync(
+      join(temporaryDirectory, "diagnostics/package.bin"),
+      Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00]),
+    );
+
+    const result = scan("diagnostics");
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("package byte signature");
   });
 });
