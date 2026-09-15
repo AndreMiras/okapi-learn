@@ -1,1 +1,88 @@
 @import "tailwindcss";
+
+@layer components {
+  .game-stage {
+    aspect-ratio: 16 / 10;
+    min-height: min(38rem, 70vh);
+  }
+
+  .game-primary-action {
+    min-height: 3rem;
+    border: 2px solid #16324f;
+    border-radius: 0.75rem;
+    background: #f4b942;
+    padding: 0.75rem 1.5rem;
+    font-weight: 700;
+    box-shadow: 3px 3px 0 #16324f;
+  }
+
+  .game-secondary-action {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    border: 2px solid #16324f;
+    border-radius: 0.75rem;
+    background: #fffdf7;
+    padding: 0.5rem 1rem;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .game-link-action {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 0.25rem;
+  }
+
+  .game-primary-action:focus-visible,
+  .game-secondary-action:focus-visible,
+  .game-link-action:focus-visible {
+    outline: 3px solid #dd796f;
+    outline-offset: 3px;
+  }
+
+  .game-hotspot {
+    height: var(--game-hotspot-height);
+    left: var(--game-hotspot-left);
+    top: var(--game-hotspot-top);
+    width: var(--game-hotspot-width);
+  }
+
+  [style*="--game-aspect"] {
+    aspect-ratio: var(--game-aspect);
+  }
+}
+
+@media (max-width: 40rem), (max-height: 40rem) {
+  .game-stage {
+    aspect-ratio: auto;
+    min-height: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-stage *,
+  .game-stage *::before,
+  .game-stage *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .game-hotspot:focus-visible,
+  .game-primary-action,
+  .game-secondary-action {
+    border-color: ButtonText;
+  }
+
+  .game-hotspot:focus-visible {
+    background: Canvas;
+    outline-color: Highlight;
+  }
+}
