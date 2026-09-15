@@ -3,10 +3,14 @@ import { notFound } from "next/navigation";
 
 import { MediaPlayer } from "@/components/media-player";
 import { ProtectedTools } from "@/components/protected-tools";
+import {
+  VideoGameLaunchers,
+  VideoOpenedMarker,
+} from "@/components/video-game-reveal";
 import { getServerConfig } from "@/lib/config/server";
 import { selectPlayableMediaUrl } from "@/lib/mylocker/url-policy";
 import { requireSession } from "@/lib/session/dal";
-import { selectMedia } from "@/lib/session/selectors";
+import { isVideoViewedByLearner, selectMedia } from "@/lib/session/selectors";
 
 export default async function MediaPage({
   params,
@@ -22,9 +26,14 @@ export default async function MediaPage({
     isAudio ? config.audioPlaybackEnabled : config.videoPlaybackEnabled,
     isAudio ? config.allowedAudioOrigins : config.allowedVideoOrigins,
   );
+  const games = selection.media.games.map(({ alias, slot }) => ({
+    alias,
+    slot,
+  }));
   return (
     <div className="grid w-full gap-[clamp(2rem,6vw,5rem)]">
       <article className="relative overflow-hidden rounded-[clamp(1rem,4vw,2rem)] border border-[#16324f26] bg-[#fffdf7] p-[clamp(1.5rem,5vw,4rem)] shadow-[0_18px_50px_#16324f18] max-[420px]:p-5">
+        {!isAudio && <VideoOpenedMarker videoAlias={mediaAlias} />}
         <Link
           className="mb-5 inline-flex min-h-11 items-center font-bold underline-offset-4 focus-visible:rounded focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#dd796f]"
           href={`/learn/${learnerAlias}`}
@@ -78,6 +87,27 @@ export default async function MediaPage({
           >
             <strong>Catalog only</strong>
             <span>Playback is not available in this version.</span>
+          </div>
+        )}
+        {!isAudio && games.length > 0 && (
+          <div className="mt-8 grid gap-3 border-t border-[#16324f26] pt-6">
+            <h2 className="m-0 font-['Fraunces_Variable',serif] text-2xl">
+              Linked activities
+            </h2>
+            <p className="m-0 max-w-2xl text-sm">
+              Opening this video reveals its activities for this browser visit.
+              You do not need to finish the video first.
+            </p>
+            <VideoGameLaunchers
+              enabled={config.gamePlaybackEnabled}
+              games={games}
+              initiallyRevealed={isVideoViewedByLearner(
+                selection.learner,
+                selection.media,
+              )}
+              learnerAlias={learnerAlias}
+              videoAlias={mediaAlias}
+            />
           </div>
         )}
       </article>

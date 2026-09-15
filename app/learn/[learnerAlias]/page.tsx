@@ -2,16 +2,22 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ProtectedTools } from "@/components/protected-tools";
+import { VideoGameLaunchers } from "@/components/video-game-reveal";
+import { getServerConfig } from "@/lib/config/server";
 import { requireSession } from "@/lib/session/dal";
-import { selectLearner } from "@/lib/session/selectors";
-import type { SessionMedia } from "@/lib/session/types";
+import { isVideoViewedByLearner, selectLearner } from "@/lib/session/selectors";
+import type { SessionLearner, SessionMedia } from "@/lib/session/types";
 
 function MediaGroup({
   items,
+  learner,
   learnerAlias,
   title,
+  gamesEnabled,
 }: Readonly<{
+  gamesEnabled: boolean;
   items: readonly SessionMedia[];
+  learner: SessionLearner;
   learnerAlias: string;
   title: string;
 }>) {
@@ -28,28 +34,42 @@ function MediaGroup({
       </h2>
       {items.length ? (
         <div className="mt-8 grid grid-cols-[repeat(auto-fit,minmax(min(100%,15rem),1fr))] gap-5">
-          {items.map((item, index) => (
-            <Link
-              className="relative grid min-h-36 grid-cols-[6rem_minmax(0,1fr)] overflow-hidden rounded-[clamp(1rem,4vw,2rem)] border border-[#16324f26] bg-[#fffdf7] no-underline shadow-[0_18px_50px_#16324f18] focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-[#dd796f]"
-              href={`/learn/${learnerAlias}/media/${item.alias}`}
-              key={item.alias}
-            >
-              <span
-                className={`min-h-full border-r-2 border-[#16324f] ${["bg-[linear-gradient(145deg,#a8d5ba_48%,#f4b942_49%_65%,#dd796f_66%)]", "bg-[radial-gradient(circle_at_35%_35%,#f4b942_0_20%,transparent_21%),#a8d5ba]", "bg-[linear-gradient(35deg,#dd796f_0_45%,#fff8e8_46%_55%,#b9cae5_56%)]"][index % 3]}`}
-                aria-hidden="true"
-              />
-              <span className="flex min-w-0 flex-col gap-2 p-4 [overflow-wrap:anywhere]">
-                <strong className="font-['Fraunces_Variable',serif] text-xl">
-                  {item.title}
-                </strong>
-                {item.description && <span>{item.description}</span>}
-                <small className="text-sm font-normal">
-                  {item.duration ? `${item.duration} · ` : ""}
-                  {item.kind === "audio" ? "Audio" : "Video"}
-                </small>
-              </span>
-            </Link>
-          ))}
+          {items.map((item, index) => {
+            const games = item.games.map(({ alias, slot }) => ({
+              alias,
+              slot,
+            }));
+            return (
+              <article className="grid content-start gap-4" key={item.alias}>
+                <Link
+                  className="relative grid min-h-36 grid-cols-[6rem_minmax(0,1fr)] overflow-hidden rounded-[clamp(1rem,4vw,2rem)] border border-[#16324f26] bg-[#fffdf7] no-underline shadow-[0_18px_50px_#16324f18] focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-[#dd796f]"
+                  href={`/learn/${learnerAlias}/media/${item.alias}`}
+                >
+                  <span
+                    className={`min-h-full border-r-2 border-[#16324f] ${["bg-[linear-gradient(145deg,#a8d5ba_48%,#f4b942_49%_65%,#dd796f_66%)]", "bg-[radial-gradient(circle_at_35%_35%,#f4b942_0_20%,transparent_21%),#a8d5ba]", "bg-[linear-gradient(35deg,#dd796f_0_45%,#fff8e8_46%_55%,#b9cae5_56%)]"][index % 3]}`}
+                    aria-hidden="true"
+                  />
+                  <span className="flex min-w-0 flex-col gap-2 p-4 [overflow-wrap:anywhere]">
+                    <strong className="font-['Fraunces_Variable',serif] text-xl">
+                      {item.title}
+                    </strong>
+                    {item.description && <span>{item.description}</span>}
+                    <small className="text-sm font-normal">
+                      {item.duration ? `${item.duration} · ` : ""}
+                      {item.kind === "audio" ? "Audio" : "Video"}
+                    </small>
+                  </span>
+                </Link>
+                <VideoGameLaunchers
+                  enabled={gamesEnabled}
+                  games={games}
+                  initiallyRevealed={isVideoViewedByLearner(learner, item)}
+                  learnerAlias={learnerAlias}
+                  videoAlias={item.alias}
+                />
+              </article>
+            );
+          })}
         </div>
       ) : (
         <p className="p-[clamp(1.5rem,5vw,3rem)]">
@@ -66,6 +86,7 @@ export default async function CatalogPage({
   const { learnerAlias } = await params;
   const selection = selectLearner(await requireSession(), learnerAlias);
   if (!selection) notFound();
+  const gamesEnabled = getServerConfig().gamePlaybackEnabled;
   return (
     <div className="grid w-full gap-[clamp(2rem,6vw,5rem)]">
       <div>
@@ -85,12 +106,16 @@ export default async function CatalogPage({
           Browse what is available in this sign-in session.
         </p>
         <MediaGroup
+          gamesEnabled={gamesEnabled}
           items={selection.course.audios}
+          learner={selection.learner}
           learnerAlias={learnerAlias}
           title="Listen"
         />
         <MediaGroup
+          gamesEnabled={gamesEnabled}
           items={selection.course.videos}
+          learner={selection.learner}
           learnerAlias={learnerAlias}
           title="Watch"
         />

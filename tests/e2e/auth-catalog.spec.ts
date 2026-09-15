@@ -168,6 +168,117 @@ test("supports multiple learners and never keeps the prior catalog", async ({
   ).toBeVisible();
 });
 
+test("reveals video-linked activities only in learner-scoped browser memory", async ({
+  context,
+  page,
+}, testInfo) => {
+  await signInSuccessfully(page, flowUser("game-reveal"), testInfo);
+  await page.getByRole("link", { name: /Nova/ }).click();
+
+  const viewedCard = page.locator("article").filter({
+    has: page.getByRole("link", { name: /Moonlight Story/ }),
+  });
+  const unviewedCard = page.locator("article").filter({
+    has: page.getByRole("link", { name: /Unopened Comet Story/ }),
+  });
+  await expect(
+    viewedCard.getByRole("link", { name: "Activity unavailable", exact: true }),
+  ).toBeVisible();
+  await expect(
+    viewedCard.getByRole("link", {
+      name: "Activity 2 unavailable",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    viewedCard.getByRole("link", {
+      name: "Activity 3 unavailable",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(unviewedCard.getByLabel("Linked activities")).toHaveCount(0);
+
+  const activityHref = await viewedCard
+    .getByRole("link", { name: "Activity unavailable", exact: true })
+    .getAttribute("href");
+  expect(activityHref).toMatch(
+    /^\/learn\/[A-Za-z0-9_-]+\/media\/[A-Za-z0-9_-]+\/game\/[A-Za-z0-9_-]+$/,
+  );
+  await unviewedCard
+    .getByRole("link", { name: /Unopened Comet Story/ })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Unopened Comet Story" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Activity unavailable", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: /Back to catalog/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Nova's catalog" }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator("article")
+      .filter({ hasText: "Unopened Comet Story" })
+      .getByRole("link", { name: "Activity unavailable", exact: true }),
+  ).toBeVisible();
+
+  const newTab = await context.newPage();
+  await newTab.goto(page.url());
+  await expect(
+    newTab
+      .locator("article")
+      .filter({ hasText: "Unopened Comet Story" })
+      .getByLabel("Linked activities"),
+  ).toHaveCount(0);
+  await newTab.close();
+
+  await page.reload();
+  await expect(
+    page
+      .locator("article")
+      .filter({ hasText: "Unopened Comet Story" })
+      .getByLabel("Linked activities"),
+  ).toHaveCount(0);
+  await expect(
+    page
+      .locator("article")
+      .filter({ hasText: "Moonlight Story" })
+      .getByRole("link", { name: "Activity unavailable", exact: true }),
+  ).toBeVisible();
+
+  await page.getByRole("link", { name: /All learners/ }).click();
+  await page.getByRole("link", { name: /Lyra/ }).click();
+  await expect(page.getByLabel("Linked activities")).toHaveCount(0);
+});
+
+test("shows the disabled activity state without requesting a package", async ({
+  page,
+}, testInfo) => {
+  const packageRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().includes("/games/")) {
+      packageRequests.push(request.url());
+    }
+  });
+  await signInSuccessfully(page, flowUser("game-disabled"), testInfo);
+  await page.getByRole("link", { name: /Nova/ }).click();
+  await page
+    .getByRole("link", { name: "Activity unavailable", exact: true })
+    .first()
+    .click();
+  await expect(page.getByRole("heading", { name: "Activity" })).toBeVisible();
+  await expect(
+    page.getByText(/games are not enabled on this server/),
+  ).toBeVisible();
+  await expect(page).toHaveURL(
+    /\/learn\/[A-Za-z0-9_-]+\/media\/[A-Za-z0-9_-]+\/game\/[A-Za-z0-9_-]+$/,
+  );
+
+  expect(packageRequests).toEqual([]);
+});
+
 test("handles empty, malformed, mismatched, and unavailable catalogs", async ({
   page,
 }, testInfo) => {
@@ -355,12 +466,15 @@ test("keeps secrets and upstream identifiers out of browser-visible data", async
     "http://127.0.0.1:4100/__fixture__/ledger",
   );
   expect(ledger.ok()).toBe(true);
+  const relevantLedger = (
+    (await ledger.json()) as Array<{ path: string }>
+  ).filter(({ path }) => !path.includes("GetGame"));
   const visibleData = JSON.stringify({
     consoleOutput,
     cookies,
     responseBodies,
     storage,
-    ledger: await ledger.json(),
+    ledger: relevantLedger,
   });
   for (const forbidden of E2E_FORBIDDEN_BROWSER_VALUES) {
     expect(visibleData).not.toContain(forbidden);
