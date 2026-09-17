@@ -15,7 +15,7 @@ export type DynamicElement = Readonly<{
   id: string;
   image: string;
   initialSound: readonly string[];
-  label: string;
+  label: string | null;
   okSound: readonly string[];
 }>;
 

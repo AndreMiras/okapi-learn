@@ -168,23 +168,45 @@ test("delivers and completes the mixed package with local-only state", async ({
     page.getByRole("heading", { name: "Listen and choose" }),
   ).toBeVisible();
   await expectNoSeriousA11yIssues(page);
-  await page.getByRole("button", { name: "Blue drum" }).click();
-  for (const label of ["Amber kite", "Blue drum", "Coral boat", "Daisy bell"]) {
-    const choice = page.getByRole("button", { name: label });
+  await page.getByRole("button", { name: "Picture 2" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Listen and choose" }),
+  ).toBeFocused();
+  await page.getByRole("button", { name: "Replay prompt" }).click();
+  await page.getByRole("heading", { name: "Listen and choose" }).focus();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Picture 1" })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("heading", { name: "Listen and choose" }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Picture 2" })).toBeFocused();
+  await page.keyboard.press("Space");
+  for (const label of [
+    "Picture 3: Shared picture",
+    "Picture 4: Shared picture",
+  ]) {
+    const choice = page.getByRole("button", { name: label, exact: true });
     await expect(choice).toBeEnabled();
     await choice.click();
   }
 
-  const comet = page.getByRole("button", { name: "Green comet" });
+  const comet = page.getByRole("button", {
+    name: /^Picture \d+: Green comet$/,
+  });
   await expect(comet).toBeEnabled();
-  await comet.click();
+  if (testInfo.project.use.isMobile) await comet.tap();
+  else await comet.click();
   await expect(
     page.getByRole("heading", { name: "Explore the picture" }),
   ).toBeVisible();
   await expectNoSeriousA11yIssues(page);
-  const star = page.getByRole("button", { name: "Bright star" });
+  const star = page.getByRole("button", { name: "Hotspot 1" });
   await expect(star).toBeEnabled();
-  await star.click();
+  if (testInfo.project.use.isMobile) await star.tap();
+  else await star.click();
   await expect(
     page.getByRole("heading", { name: "Cloud break" }),
   ).toBeVisible();
@@ -250,7 +272,7 @@ test("keeps delivery private and allows Blob-backed game assets through CSP", as
   expect(csp).toMatch(/media-src[^;]*blob:/);
   expect(csp).toMatch(/connect-src 'self'/);
   await page.getByRole("button", { name: "Play activity" }).click();
-  const image = page.getByRole("button", { name: "Amber kite" }).locator("img");
+  const image = page.getByRole("button", { name: "Picture 1" }).locator("img");
   await expect(image).toBeVisible();
   await expect
     .poll(() =>

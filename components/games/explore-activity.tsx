@@ -14,6 +14,7 @@ import type { DynamicElement, ExploreDynamic } from "@/lib/games/package/types";
 import { shuffle, type RandomSource } from "@/lib/games/runtime/shuffle";
 
 import { assetUrls, type ActivityProps } from "./activity-types";
+import { hotspotControlName } from "./element-control-name";
 import { GameAudioError } from "./game-audio";
 
 type ExploreActivityProps = ActivityProps &
@@ -35,16 +36,16 @@ export function ExploreActivity(props: ExploreActivityProps) {
     phase,
     random,
   } = props;
-  const [order] = useState(() =>
+  const [targetOrder] = useState(() =>
     dynamic.listen ? shuffle(dynamic.elements, random) : [...dynamic.elements],
   );
   const [touched, setTouched] = useState<ReadonlySet<string>>(() => new Set());
   const [pending, setPending] = useState<string | null>(null);
   const [replaying, setReplaying] = useState(false);
   const feedbackStarted = useRef(false);
+  const heading = useRef<HTMLHeadingElement>(null);
   const stage = useRef<HTMLDivElement>(null);
-  const nextHotspot = useRef<HTMLButtonElement>(null);
-  const target = order.find((element) => !touched.has(element.id));
+  const target = targetOrder.find((element) => !touched.has(element.id));
 
   const selectForActivation = (
     element: DynamicElement,
@@ -105,8 +106,8 @@ export function ExploreActivity(props: ExploreActivityProps) {
   ]);
 
   useEffect(() => {
-    if (phase === "accepting-input") nextHotspot.current?.focus();
-  }, [phase, touched]);
+    if (phase === "accepting-input") heading.current?.focus();
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== "feedback") {
@@ -171,6 +172,8 @@ export function ExploreActivity(props: ExploreActivityProps) {
         <h2
           className="m-0 font-['Fraunces_Variable',serif] text-2xl"
           id="explore-heading"
+          ref={heading}
+          tabIndex={-1}
         >
           Explore the picture
         </h2>
@@ -192,7 +195,7 @@ export function ExploreActivity(props: ExploreActivityProps) {
           className="absolute inset-0 h-full w-full object-contain"
           src={assets.getUrl(dynamic.backgroundImage)}
         />
-        {order.map((element) => (
+        {dynamic.elements.map((element, elementIndex) => (
           <div key={element.id}>
             {touched.has(element.id) && (
               <img
@@ -204,11 +207,12 @@ export function ExploreActivity(props: ExploreActivityProps) {
             {!touched.has(element.id) &&
               element.frames.map((frame, frameIndex) => (
                 <button
-                  aria-label={
-                    element.frames.length === 1
-                      ? element.label
-                      : `${element.label}, area ${frameIndex + 1}`
-                  }
+                  aria-label={hotspotControlName(
+                    element.label,
+                    elementIndex,
+                    frameIndex,
+                    element.frames.length,
+                  )}
                   className="game-hotspot absolute min-h-11 min-w-11 border-2 border-transparent bg-transparent focus-visible:border-white focus-visible:outline-3 focus-visible:outline-[#dd796f]"
                   disabled={phase !== "accepting-input" || replaying}
                   key={`${element.id}-${frameIndex}`}
@@ -228,11 +232,6 @@ export function ExploreActivity(props: ExploreActivityProps) {
                       "--game-hotspot-top": `${(frame.y1 / dynamic.backgroundHeight) * 100}%`,
                       "--game-hotspot-width": `${((frame.x2 - frame.x1) / dynamic.backgroundWidth) * 100}%`,
                     } as CSSProperties
-                  }
-                  ref={
-                    element.id === target?.id && frameIndex === 0
-                      ? nextHotspot
-                      : undefined
                   }
                   type="button"
                 />

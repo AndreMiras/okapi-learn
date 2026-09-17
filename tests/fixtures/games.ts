@@ -81,6 +81,37 @@ export function createPng(
   ]);
 }
 
+export function createIndexedPng(
+  width = 8,
+  height = 6,
+): Uint8Array<ArrayBuffer> {
+  const header = new Uint8Array(13);
+  const headerView = new DataView(header.buffer);
+  headerView.setUint32(0, width);
+  headerView.setUint32(4, height);
+  header[8] = 1;
+  header[9] = 3;
+  const rowBytes = Math.ceil(width / 8);
+  const scanlines = new Uint8Array(height * (1 + rowBytes));
+  for (let row = 0; row < height; row += 1) {
+    const rowStart = row * (1 + rowBytes);
+    scanlines[rowStart] = 0;
+    for (let column = 0; column < width; column += 1) {
+      if ((row + column) % 2 === 0) {
+        scanlines[rowStart + 1 + Math.floor(column / 8)]! |=
+          1 << (7 - (column % 8));
+      }
+    }
+  }
+  return join([
+    new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk("IHDR", header),
+    pngChunk("PLTE", new Uint8Array([42, 75, 110, 238, 178, 74])),
+    pngChunk("IDAT", new Uint8Array(deflateSync(scanlines))),
+    pngChunk("IEND", new Uint8Array()),
+  ]);
+}
+
 export const FICTIONAL_MP3 = new Uint8Array([
   0x49, 0x44, 0x33, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 ]);
@@ -186,6 +217,47 @@ export function createFictionalDescriptors(): Record<string, unknown> {
   };
 }
 
+export function createUnnamedFictionalDescriptors(): Record<string, unknown> {
+  const descriptors = structuredClone(createFictionalDescriptors()) as Record<
+    string,
+    any
+  >;
+  for (const path of [
+    "dynamics/listen-all.json",
+    "dynamics/listen-fuzzy.json",
+  ]) {
+    for (const item of [
+      ...descriptors[path].selectableElements,
+      ...descriptors[path].fuzzyElements,
+    ]) {
+      delete item.Name;
+    }
+  }
+  for (const item of descriptors["dynamics/explore.json"].elements) {
+    delete item.Name;
+  }
+  return descriptors;
+}
+
+export function createMixedNameFictionalDescriptors(): Record<string, unknown> {
+  const descriptors = structuredClone(createFictionalDescriptors()) as Record<
+    string,
+    any
+  >;
+  const listenAll = descriptors["dynamics/listen-all.json"].selectableElements;
+  delete listenAll[0].Name;
+  listenAll[1].Name = "";
+  listenAll[2].Name = "Shared picture";
+  listenAll[3].Name = "Shared picture";
+
+  const listenFuzzy = descriptors["dynamics/listen-fuzzy.json"];
+  for (const item of listenFuzzy.fuzzyElements) delete item.Name;
+  // Keep one useful name so the shuffled single-target stage remains locatable.
+  listenFuzzy.selectableElements[0].Name = "Green comet";
+  delete descriptors["dynamics/explore.json"].elements[0].Name;
+  return descriptors;
+}
+
 export function createFictionalGameEntries(
   descriptors: Record<string, unknown> = createFictionalDescriptors(),
 ): GameZipEntry[] {
@@ -207,12 +279,15 @@ export function createFictionalGameEntries(
       text: JSON.stringify(value),
     })),
     ...imageNames.map((name, index) => ({
-      bytes: createPng(8, 6, [
-        (55 + index * 37) % 220,
-        (95 + index * 53) % 220,
-        (135 + index * 29) % 220,
-        255,
-      ]),
+      bytes:
+        name === "amber"
+          ? createIndexedPng()
+          : createPng(8, 6, [
+              (55 + index * 37) % 220,
+              (95 + index * 53) % 220,
+              (135 + index * 29) % 220,
+              255,
+            ]),
       name: `images/${name}.png`,
     })),
     { bytes: FICTIONAL_MP3, name: "audio/prompt.mp3" },
@@ -249,4 +324,16 @@ export async function createGameZip(
 
 export async function createFictionalGameZip(): Promise<ArrayBuffer> {
   return createGameZip(createFictionalGameEntries());
+}
+
+export async function createUnnamedFictionalGameZip(): Promise<ArrayBuffer> {
+  return createGameZip(
+    createFictionalGameEntries(createUnnamedFictionalDescriptors()),
+  );
+}
+
+export async function createMixedNameFictionalGameZip(): Promise<ArrayBuffer> {
+  return createGameZip(
+    createFictionalGameEntries(createMixedNameFictionalDescriptors()),
+  );
 }

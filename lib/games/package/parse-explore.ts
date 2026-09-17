@@ -11,13 +11,18 @@ import {
 import type { ExploreDynamic } from "./types";
 
 function inactiveCounter(value: unknown): boolean {
+  const values =
+    typeof value === "object" && value !== null && !Array.isArray(value)
+      ? Object.values(value)
+      : null;
   return (
     value === null ||
     value === undefined ||
-    (typeof value === "object" &&
-      value !== null &&
-      !Array.isArray(value) &&
-      Object.keys(value).length === 0)
+    values?.length === 0 ||
+    (values?.length === 3 &&
+      values.filter((item) => item === null).length === 2 &&
+      values.filter((item) => Array.isArray(item) && item.length === 0)
+        .length === 1)
   );
 }
 

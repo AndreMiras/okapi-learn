@@ -6,6 +6,7 @@ import {
   createFictionalGameEntries,
   createFictionalGameZip,
   createGameZip,
+  createIndexedPng,
   createPng,
 } from "@/tests/fixtures/games";
 
@@ -22,12 +23,9 @@ async function prepare(source = descriptors()) {
   );
 }
 
-async function rejects(
-  source: Record<string, unknown>,
-  category: "inaccessible" | "unsupported" = "unsupported",
-) {
+async function rejects(source: Record<string, unknown>) {
   await expect(prepare(source)).rejects.toMatchObject({
-    category,
+    category: "unsupported",
   });
 }
 
@@ -95,6 +93,164 @@ describe("prepareGamePackage", () => {
     );
   });
 
+  it.each([true, false])(
+    "treats element names as optional metadata with EXPLORE listen=%s",
+    async (listen) => {
+      const source = descriptors();
+      const listenAll = source["dynamics/listen-all.json"];
+      const listenFuzzy = source["dynamics/listen-fuzzy.json"];
+      const explore = source["dynamics/explore.json"];
+      listenAll.selectableElements[0].Name = "  Amber   kite  ";
+      listenAll.selectableElements[1].Name = "a".repeat(200);
+      listenAll.selectableElements[2].Name = "a".repeat(201);
+      delete listenAll.selectableElements[3].Name;
+      listenFuzzy.selectableElements[0].Name = null;
+      listenFuzzy.fuzzyElements[0].Name = false;
+      listenFuzzy.fuzzyElements[1].Name = "Amber kite";
+      listenFuzzy.fuzzyElements[2].Name = "AMBER KITE";
+      explore.listen = listen;
+      explore.elements[0].Name = "Bright\nstar";
+
+      const prepared = await prepare(source);
+      const parsedListenAll = prepared.game.dynamics[0];
+      const parsedListenFuzzy = prepared.game.dynamics[1];
+      const parsedExplore = prepared.game.dynamics[2];
+      expect(parsedListenAll?.type).toBe("LISTEN");
+      expect(parsedListenFuzzy?.type).toBe("LISTEN");
+      expect(parsedExplore?.type).toBe("EXPLORE");
+      if (
+        parsedListenAll?.type !== "LISTEN" ||
+        parsedListenFuzzy?.type !== "LISTEN" ||
+        parsedExplore?.type !== "EXPLORE"
+      ) {
+        throw new Error("Unexpected fictional dynamic types");
+      }
+      expect(
+        parsedListenAll.selectableElements.map(({ label }) => label),
+      ).toEqual(["Amber kite", "a".repeat(200), null, null]);
+      expect(parsedListenFuzzy.fuzzyElements.map(({ label }) => label)).toEqual(
+        [null, "Amber kite", "AMBER KITE"],
+      );
+      expect(parsedListenFuzzy.selectableElements[0]?.label).toBeNull();
+      expect(parsedExplore).toMatchObject({
+        elements: [{ label: null }],
+        listen,
+      });
+      prepared.assets.dispose();
+    },
+  );
+
+  it("retains duplicate Unicode-equivalent element metadata", async () => {
+    const source = descriptors();
+    const elements = source["dynamics/listen-all.json"].selectableElements;
+    elements[0].Name = "Caf\u00e9";
+    elements[1].Name = "Cafe\u0301";
+    const prepared = await prepare(source);
+    const dynamic = prepared.game.dynamics[0];
+    expect(dynamic?.type).toBe("LISTEN");
+    if (dynamic?.type !== "LISTEN")
+      throw new Error("Unexpected fictional dynamic type");
+    expect(
+      dynamic.selectableElements.slice(0, 2).map(({ label }) => label),
+    ).toEqual(["Caf\u00e9", "Cafe\u0301"]);
+    prepared.assets.dispose();
+  });
+
+  it("accepts a decodable 1-bit indexed PNG", async () => {
+    const entries = createFictionalGameEntries().map((entry) =>
+      entry.name === "images/star.png"
+        ? { ...entry, bytes: createIndexedPng() }
+        : entry,
+    );
+    const prepared = await prepareGamePackage(
+      await createGameZip(entries),
+      signal(),
+    );
+    expect(prepared.game.dynamics[2]).toMatchObject({
+      backgroundHeight: 6,
+      backgroundWidth: 8,
+    });
+    prepared.assets.dispose();
+  });
+
+  it.each([
+    [1, 2],
+    [2, 3],
+    [4, 6],
+  ])(
+    "rejects unobserved PNG bit-depth %i and color-type %i combinations",
+    async (bitDepth, colorType) => {
+      const png = createIndexedPng().slice();
+      png[24] = bitDepth;
+      png[25] = colorType;
+      const entries = createFictionalGameEntries().map((entry) =>
+        entry.name === "images/star.png" ? { ...entry, bytes: png } : entry,
+      );
+      await expect(
+        prepareGamePackage(await createGameZip(entries), signal()),
+      ).rejects.toMatchObject({ category: "unsupported" });
+    },
+  );
+
+  it.each([
+    ["3a6f9c", "#3A6F9C"],
+    ["#a1b2c3", "#A1B2C3"],
+  ])("accepts and normalizes RGB value %s", async (rgb, normalized) => {
+    const source = descriptors();
+    source["dynamics/wildcard.json"].rgb = rgb;
+    const prepared = await prepare(source);
+    expect(prepared.game.dynamics[3]).toMatchObject({ rgb: normalized });
+    prepared.assets.dispose();
+  });
+
+  it("accepts and normalizes a canonical decimal WILDCARD position", async () => {
+    const source = descriptors();
+    source["dynamics/wildcard.json"].position = "-42";
+    const prepared = await prepare(source);
+    expect(prepared.game.dynamics[3]).toMatchObject({ position: -42 });
+    prepared.assets.dispose();
+  });
+
+  it("accepts the observed inert EXPLORE new-counter value shape", async () => {
+    const source = descriptors();
+    source["dynamics/explore.json"].newCounter = {
+      fictionalItems: [],
+      fictionalMaximum: null,
+      fictionalValue: null,
+    };
+    const prepared = await prepare(source);
+    expect(prepared.game.dynamics[2]).toMatchObject({ type: "EXPLORE" });
+    prepared.assets.dispose();
+  });
+
+  it.each([
+    { fictionalItems: [null], fictionalMaximum: null, fictionalValue: null },
+    { fictionalItems: [], fictionalMaximum: 0, fictionalValue: null },
+    { fictionalItems: [], fictionalMaximum: null },
+    {
+      extra: null,
+      fictionalItems: [],
+      fictionalMaximum: null,
+      fictionalValue: null,
+    },
+  ])(
+    "rejects other nonempty EXPLORE new-counter shapes",
+    async (newCounter) => {
+      const source = descriptors();
+      source["dynamics/explore.json"].newCounter = newCounter;
+      await rejects(source);
+    },
+  );
+
+  it.each(["+1", "01", "1.0", " 1", "101"])(
+    "rejects unsupported WILDCARD position string %s",
+    async (position) => {
+      const source = descriptors();
+      source["dynamics/wildcard.json"].position = position;
+      await rejects(source);
+    },
+  );
+
   it.each([
     [
       "book packages",
@@ -130,35 +286,6 @@ describe("prepareGamePackage", () => {
       "empty package names",
       (value: any) => {
         value["game.json"].name = "  ";
-      },
-    ],
-    [
-      "control characters",
-      (value: any) => {
-        value["dynamics/listen-all.json"].selectableElements[0].Name =
-          "Amber\nKite";
-      },
-    ],
-    [
-      "empty labels",
-      (value: any) => {
-        value["dynamics/listen-all.json"].selectableElements[0].Name = "";
-      },
-    ],
-    [
-      "duplicate labels",
-      (value: any) => {
-        value["dynamics/listen-all.json"].selectableElements[1].Name =
-          "AMBER KITE";
-      },
-    ],
-    [
-      "Unicode-folded duplicate labels",
-      (value: any) => {
-        value["dynamics/listen-all.json"].selectableElements[0].Name =
-          "Stra\u00dfe";
-        value["dynamics/listen-all.json"].selectableElements[1].Name =
-          "STRASSE";
       },
     ],
     [
@@ -264,13 +391,6 @@ describe("prepareGamePackage", () => {
       },
     ],
     [
-      "oversized labels",
-      (value: any) => {
-        value["dynamics/listen-all.json"].selectableElements[0].Name =
-          "a".repeat(201);
-      },
-    ],
-    [
       "oversized names",
       (value: any) => {
         value["dynamics/wildcard.json"].name = "a".repeat(501);
@@ -291,18 +411,7 @@ describe("prepareGamePackage", () => {
   ] as const)("rejects %s", async (name, mutate) => {
     const value = descriptors();
     mutate(value);
-    await rejects(
-      value,
-      [
-        "control characters",
-        "duplicate labels",
-        "empty labels",
-        "oversized labels",
-        "Unicode-folded duplicate labels",
-      ].includes(name)
-        ? "inaccessible"
-        : "unsupported",
-    );
+    await rejects(value);
     expect(createObjectURL).not.toHaveBeenCalled();
   });
 
@@ -345,15 +454,26 @@ describe("prepareGamePackage", () => {
 
   it("rejects excessive JSON depth and node count", async () => {
     const deep = descriptors();
-    let nested: any = deep["game.json"];
+    let nested: any = deep["dynamics/listen-all.json"].selectableElements[0];
+    nested.Name = {};
+    nested = nested.Name;
     for (let index = 0; index < 18; index += 1) nested.extra = nested = {};
     await rejects(deep);
 
     const wide = descriptors();
-    wide["game.json"].extra = Array.from({ length: 128 }, () =>
-      Array.from({ length: 128 }, () => [null]),
+    wide["dynamics/explore.json"].elements[0].Name = Array.from(
+      { length: 128 },
+      () => Array.from({ length: 128 }, () => [null]),
     );
     await rejects(wide);
+  });
+
+  it("keeps descriptor byte limits for ignored Name metadata", async () => {
+    const source = descriptors();
+    source["dynamics/listen-all.json"].selectableElements[0].Name = "a".repeat(
+      1024 * 1024,
+    );
+    await rejects(source);
   });
 
   it("rejects orphan files, duplicate root descriptors, and active content", async () => {

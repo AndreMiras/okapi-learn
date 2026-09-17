@@ -114,17 +114,24 @@ test("@visual fictional game states", async ({ page }, testInfo) => {
   await page.getByRole("heading", { name: "Listen and choose" }).waitFor();
   await capture(page, "game-listen.png");
 
-  for (const label of ["Amber kite", "Blue drum", "Coral boat", "Daisy bell"]) {
-    const choice = page.getByRole("button", { name: label });
+  for (const label of [
+    "Picture 1",
+    "Picture 2",
+    "Picture 3: Shared picture",
+    "Picture 4: Shared picture",
+  ]) {
+    const choice = page.getByRole("button", { name: label, exact: true });
     await expect(choice).toBeEnabled();
     await choice.click();
   }
-  const comet = page.getByRole("button", { name: "Green comet" });
+  const comet = page.getByRole("button", {
+    name: /^Picture \d+: Green comet$/,
+  });
   await expect(comet).toBeEnabled();
   await comet.click();
   await page.getByRole("heading", { name: "Explore the picture" }).waitFor();
   await capture(page, "game-explore.png");
-  const star = page.getByRole("button", { name: "Bright star" });
+  const star = page.getByRole("button", { name: "Hotspot 1" });
   await expect(star).toBeEnabled();
   await star.click();
   await page.getByRole("heading", { name: "Cloud break" }).waitFor();

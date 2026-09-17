@@ -1,4 +1,4 @@
-export type PackageErrorCategory = "aborted" | "inaccessible" | "unsupported";
+export type PackageErrorCategory = "aborted" | "unsupported";
 
 export class PackageError extends Error {
   readonly category: PackageErrorCategory;
@@ -12,10 +12,6 @@ export class PackageError extends Error {
 
 export function packageFailure(): never {
   throw new PackageError("unsupported");
-}
-
-export function packageAccessibilityFailure(): never {
-  throw new PackageError("inaccessible");
 }
 
 export function throwIfAborted(signal: AbortSignal): void {

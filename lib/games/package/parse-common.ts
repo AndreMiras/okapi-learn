@@ -1,5 +1,5 @@
 import type { ArchiveFiles } from "./archive";
-import { packageAccessibilityFailure, packageFailure } from "./errors";
+import { packageFailure } from "./errors";
 import { MAX_AUDIO_REFERENCES, MAX_ELEMENTS, MAX_FRAMES } from "./limits";
 import type { DynamicCommon, DynamicElement, Frame } from "./types";
 import type { ImageDimensions } from "./assets";
@@ -34,13 +34,12 @@ export function boundedString(value: unknown, maximumLength: number): string {
   return normalized;
 }
 
-function accessibleLabel(value: unknown): string {
+function optionalElementLabel(value: unknown): string | null {
   if (typeof value !== "string" || value.length > 200 || CONTROLS.test(value)) {
-    packageAccessibilityFailure();
+    return null;
   }
   const normalized = value.replace(/\s+/gu, " ").trim();
-  if (!normalized) packageAccessibilityFailure();
-  return normalized;
+  return normalized || null;
 }
 
 export function boolean(value: unknown): boolean {
@@ -169,7 +168,7 @@ export function parseCommon(
     rgb !== null &&
     rgb !== undefined &&
     rgb !== "" &&
-    (typeof rgb !== "string" || !/^#[0-9a-f]{6}$/iu.test(rgb))
+    (typeof rgb !== "string" || !/^#?[0-9a-f]{6}$/iu.test(rgb))
   )
     packageFailure();
   return Object.freeze({
@@ -180,7 +179,10 @@ export function parseCommon(
     initialSound: audioReferences(context, value.initialSound),
     name: boundedString(value.name, 500),
     okSound: audioReferences(context, value.okSound),
-    rgb: typeof rgb === "string" && rgb ? rgb.toUpperCase() : null,
+    rgb:
+      typeof rgb === "string" && rgb
+        ? `#${rgb.replace(/^#/u, "").toUpperCase()}`
+        : null,
     textureImage: optionalImageReference(context, value.textureImage),
   });
 }
@@ -213,7 +215,7 @@ export function parseElement(
     id: boundedString(source.Id, 256),
     image: imageReference(context, source.image),
     initialSound: audioReferences(context, source.initialSound),
-    label: accessibleLabel(source.Name),
+    label: optionalElementLabel(source.Name),
     okSound: audioReferences(context, source.okSound),
   });
 }
@@ -221,12 +223,8 @@ export function parseElement(
 export function uniqueElements(elements: readonly DynamicElement[]): void {
   if (elements.length > MAX_ELEMENTS) packageFailure();
   const ids = new Set<string>();
-  const labels = new Set<string>();
   for (const element of elements) {
-    const label = element.label.normalize("NFC").toUpperCase().toLowerCase();
     if (ids.has(element.id)) packageFailure();
-    if (labels.has(label)) packageAccessibilityFailure();
     ids.add(element.id);
-    labels.add(label);
   }
 }

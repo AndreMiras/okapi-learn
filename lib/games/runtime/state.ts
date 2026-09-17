@@ -1,8 +1,7 @@
 import type { GamePackage } from "../package/types";
 
 export type ErrorCounts = Readonly<Record<string, number>>;
-export type RuntimeFailureReason =
-  "audio" | "inaccessible" | "load" | "runtime" | "unavailable";
+export type RuntimeFailureReason = "audio" | "load" | "runtime" | "unavailable";
 
 type Progress = Readonly<{
   completedDynamicIds: readonly string[];

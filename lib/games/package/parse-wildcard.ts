@@ -8,6 +8,14 @@ import {
 } from "./parse-common";
 import type { WildcardDynamic } from "./types";
 
+function position(value: unknown): number {
+  const normalized =
+    typeof value === "string" && /^-?(?:0|[1-9]\d*)$/u.test(value)
+      ? Number(value)
+      : value;
+  return integer(normalized, -100, 100);
+}
+
 export function parseWildcard(
   context: ParseContext,
   value: unknown,
@@ -17,7 +25,7 @@ export function parseWildcard(
     ...parseCommon(context, source),
     automatic: boolean(source.automatic),
     nextImage: optionalImageReference(context, source.nextImage),
-    position: integer(source.position, -100, 100),
+    position: position(source.position),
     speaker: boolean(source.speaker),
     type: "WILDCARD",
     waitSeconds: integer(source.waitSeconds, 0, 30),

@@ -24,7 +24,10 @@ import type {
   WildcardDynamic,
 } from "@/lib/games/package/types";
 import type { RunnerState } from "@/lib/games/runtime/state";
-import { createFictionalGameZip } from "@/tests/fixtures/games";
+import {
+  createFictionalGameZip,
+  createUnnamedFictionalGameZip,
+} from "@/tests/fixtures/games";
 
 class ImmediateAudio {
   onended: (() => void) | null = null;
@@ -57,7 +60,7 @@ const assets = {
 
 const element = (
   id: string,
-  label: string,
+  label: string | null,
   frames = [{ x1: 0, x2: 4, y1: 0, y2: 3 }],
 ): DynamicElement => ({
   errorSound: [],
@@ -164,7 +167,12 @@ describe("activity renderers", () => {
         phase="accepting-input"
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Silver leaf" }));
+    expect(screen.getByRole("heading", { name: "Listen and choose" })).toBe(
+      document.activeElement,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Picture 3: Silver leaf" }),
+    );
     expect(callbacks.onIncorrect).toHaveBeenCalledOnce();
 
     view.rerender(
@@ -191,7 +199,9 @@ describe("activity renderers", () => {
         phase="accepting-input"
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Amber kite" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Picture 1: Amber kite" }),
+    );
     expect(callbacks.onCorrect).toHaveBeenCalledOnce();
 
     view.rerender(
@@ -219,8 +229,57 @@ describe("activity renderers", () => {
       />,
     );
     expect(screen.getByText("Question 2 of 2")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Blue drum" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Picture 2: Blue drum" }),
+    );
     expect(callbacks.onComplete).toHaveBeenCalledOnce();
+  });
+
+  it("gives unnamed and duplicate LISTEN choices distinct stable names", () => {
+    const callbacks = controls();
+    const dynamic: ListenDynamic = {
+      ...common,
+      fuzzyElements: [element("wrong", "Picture 2", [])],
+      id: "listen-names",
+      random: false,
+      selectableElements: [
+        element("first", null, []),
+        element("second", null, []),
+      ],
+      type: "LISTEN",
+    };
+    const view = render(
+      <ListenActivity
+        {...callbacks}
+        assets={assets}
+        audio={audio()}
+        dynamic={dynamic}
+        generationId={1}
+        phase="accepting-input"
+      />,
+    );
+    const expected = ["Picture 1", "Picture 2", "Picture 3: Picture 2"];
+    expect(
+      screen
+        .getAllByRole("button")
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual([...expected, null]);
+    fireEvent.click(screen.getByRole("button", { name: "Picture 2" }));
+    expect(callbacks.onIncorrect).toHaveBeenCalledOnce();
+
+    view.rerender(
+      <ListenActivity
+        {...callbacks}
+        assets={assets}
+        audio={audio()}
+        dynamic={dynamic}
+        generationId={1}
+        phase="accepting-input"
+      />,
+    );
+    expect(expected.every((name) => screen.getByRole("button", { name }))).toBe(
+      true,
+    );
   });
 
   it("supports free EXPLORE hotspots and visible progress", async () => {
@@ -259,7 +318,9 @@ describe("activity renderers", () => {
         phase="accepting-input"
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Bright star" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Hotspot 1: Bright star" }),
+    );
     expect(callbacks.onCorrect).toHaveBeenCalledOnce();
     view.rerender(
       <ExploreActivity
@@ -286,8 +347,73 @@ describe("activity renderers", () => {
       />,
     );
     expect(screen.getByText("1 of 2 found")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Round moon" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Hotspot 2: Round moon" }),
+    );
     expect(callbacks.onComplete).toHaveBeenCalledOnce();
+  });
+
+  it("names multi-frame EXPLORE areas and removes them together", async () => {
+    const callbacks = controls();
+    const dynamic: ExploreDynamic = {
+      ...common,
+      backgroundHeight: 6,
+      backgroundImage: "background.png",
+      backgroundWidth: 8,
+      elements: [
+        element("star", null, [
+          { x1: 0, x2: 2, y1: 0, y2: 2 },
+          { x1: 2, x2: 4, y1: 0, y2: 2 },
+        ]),
+        element("moon", null),
+      ],
+      id: "explore-areas",
+      listen: false,
+      type: "EXPLORE",
+    };
+    const sound = audio();
+    const view = render(
+      <ExploreActivity
+        {...callbacks}
+        assets={assets}
+        audio={sound}
+        dynamic={dynamic}
+        generationId={1}
+        phase="accepting-input"
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Hotspot 1, area 1" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Hotspot 1, area 2" }));
+    view.rerender(
+      <ExploreActivity
+        {...callbacks}
+        assets={assets}
+        audio={sound}
+        dynamic={dynamic}
+        feedbackOutcome="continue"
+        generationId={1}
+        phase="feedback"
+      />,
+    );
+    await waitFor(() =>
+      expect(callbacks.onFeedbackFinished).toHaveBeenCalledOnce(),
+    );
+    view.rerender(
+      <ExploreActivity
+        {...callbacks}
+        assets={assets}
+        audio={sound}
+        dynamic={dynamic}
+        generationId={1}
+        phase="accepting-input"
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: "Hotspot 1, area 1" }),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: "Hotspot 2" })).toBeTruthy();
   });
 
   it("keeps an overlapping listening EXPLORE target pointer-accessible", () => {
@@ -312,7 +438,12 @@ describe("activity renderers", () => {
         phase="accepting-input"
       />,
     );
-    const wrong = screen.getByRole("button", { name: "Round moon" });
+    const wrong = screen.getByRole("button", {
+      name: "Hotspot 2: Round moon",
+    });
+    fireEvent.click(wrong, { detail: 0 });
+    expect(callbacks.onIncorrect).toHaveBeenCalledOnce();
+    expect(callbacks.onCorrect).not.toHaveBeenCalled();
     const stage = wrong.parentElement?.parentElement;
     vi.spyOn(stage!, "getBoundingClientRect").mockReturnValue({
       bottom: 60,
@@ -327,7 +458,136 @@ describe("activity renderers", () => {
     });
     fireEvent.click(wrong, { clientX: 10, clientY: 10, detail: 1 });
     expect(callbacks.onCorrect).toHaveBeenCalledWith(true);
-    expect(callbacks.onIncorrect).not.toHaveBeenCalled();
+    expect(callbacks.onIncorrect).toHaveBeenCalledOnce();
+  });
+
+  it("keeps listening EXPLORE presentation and focus independent of target order", () => {
+    const dynamic: ExploreDynamic = {
+      ...common,
+      backgroundHeight: 6,
+      backgroundImage: "background.png",
+      backgroundWidth: 8,
+      elements: [element("star", null), element("moon", "Round moon")],
+      id: "ordered-explore",
+      listen: true,
+      type: "EXPLORE",
+    };
+    const observed: string[][] = [];
+    for (const randomValue of [0, 0.99]) {
+      const callbacks = controls();
+      const view = render(
+        <ExploreActivity
+          {...callbacks}
+          assets={assets}
+          audio={audio()}
+          dynamic={dynamic}
+          generationId={1}
+          phase="accepting-input"
+          random={() => randomValue}
+        />,
+      );
+      const heading = screen.getByRole("heading", {
+        name: "Explore the picture",
+      });
+      expect(heading).toBe(document.activeElement);
+      observed.push(
+        screen
+          .getAllByRole("button")
+          .map((button) => button.getAttribute("aria-label"))
+          .filter((name): name is string => name !== null),
+      );
+      view.unmount();
+    }
+    expect(observed).toEqual([
+      ["Hotspot 1", "Hotspot 2: Round moon"],
+      ["Hotspot 1", "Hotspot 2: Round moon"],
+    ]);
+  });
+
+  it("returns listening EXPLORE focus to its heading after feedback and prompting", async () => {
+    const callbacks = controls();
+    const dynamic: ExploreDynamic = {
+      ...common,
+      backgroundHeight: 6,
+      backgroundImage: "background.png",
+      backgroundWidth: 8,
+      elements: [element("star", null), element("moon", null)],
+      id: "focus-explore",
+      listen: true,
+      type: "EXPLORE",
+    };
+    const sound = audio();
+    const view = render(
+      <ExploreActivity
+        {...callbacks}
+        assets={assets}
+        audio={sound}
+        dynamic={dynamic}
+        generationId={1}
+        phase="accepting-input"
+        random={() => 0}
+      />,
+    );
+    const heading = screen.getByRole("heading", {
+      name: "Explore the picture",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Hotspot 1" }), {
+      detail: 0,
+    });
+    expect(callbacks.onIncorrect).toHaveBeenCalledOnce();
+    view.rerender(
+      <ExploreActivity
+        {...callbacks}
+        assets={assets}
+        audio={sound}
+        dynamic={dynamic}
+        feedbackOutcome="incorrect"
+        generationId={1}
+        phase="feedback"
+        random={() => 0}
+      />,
+    );
+    await waitFor(() =>
+      expect(callbacks.onFeedbackFinished).toHaveBeenCalledOnce(),
+    );
+    view.rerender(
+      <ExploreActivity
+        {...callbacks}
+        assets={assets}
+        audio={sound}
+        dynamic={dynamic}
+        generationId={1}
+        phase="accepting-input"
+        random={() => 0}
+      />,
+    );
+    expect(heading).toBe(document.activeElement);
+    view.rerender(
+      <ExploreActivity
+        {...callbacks}
+        assets={assets}
+        audio={sound}
+        dynamic={dynamic}
+        generationId={2}
+        phase="prompt"
+        random={() => 0}
+      />,
+    );
+    await waitFor(() =>
+      expect(callbacks.onPromptFinished).toHaveBeenCalledOnce(),
+    );
+    view.rerender(
+      <ExploreActivity
+        {...callbacks}
+        assets={assets}
+        audio={sound}
+        dynamic={dynamic}
+        generationId={2}
+        phase="accepting-input"
+        random={() => 0}
+      />,
+    );
+    expect(heading).toBe(document.activeElement);
   });
 
   it("renders manual WILDCARD controls and completes automatic waits", async () => {
@@ -662,9 +922,10 @@ describe("GameRunner", () => {
     expect(revokeObjectURL).toHaveBeenCalled();
   });
 
-  it("completes the mixed package locally and releases package URLs", async () => {
-    const zip = await createFictionalGameZip();
+  it("completes an all-unnamed mixed package locally and releases package URLs", async () => {
+    const zip = await createUnnamedFictionalGameZip();
     const revokeObjectURL = vi.fn();
+    vi.spyOn(Math, "random").mockReturnValue(0);
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(zip, { status: 200 })),
@@ -687,24 +948,30 @@ describe("GameRunner", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Play activity" }));
-    for (const label of [
-      "Amber kite",
-      "Blue drum",
-      "Coral boat",
-      "Daisy bell",
-    ]) {
+    for (const label of ["Picture 1", "Picture 2", "Picture 3", "Picture 4"]) {
       const choice = await screen.findByRole("button", { name: label });
       await waitFor(() =>
         expect((choice as HTMLButtonElement).disabled).toBe(false),
       );
       fireEvent.click(choice);
     }
-    const target = await screen.findByRole("button", { name: "Green comet" });
+    let wrong: HTMLButtonElement | undefined;
+    await waitFor(() => {
+      wrong = screen
+        .getAllByRole("button", { name: "Picture 1" })
+        .find((button) => !(button as HTMLButtonElement).disabled) as
+        HTMLButtonElement | undefined;
+      expect(wrong).toBeTruthy();
+    });
+    if (!wrong) throw new Error("Expected an enabled wrong choice");
+    fireEvent.click(wrong);
+    await waitFor(() => expect(wrong?.disabled).toBe(false));
+    const target = await screen.findByRole("button", { name: "Picture 4" });
     await waitFor(() =>
       expect((target as HTMLButtonElement).disabled).toBe(false),
     );
     fireEvent.click(target);
-    const hotspot = await screen.findByRole("button", { name: "Bright star" });
+    const hotspot = await screen.findByRole("button", { name: "Hotspot 1" });
     await waitFor(() =>
       expect((hotspot as HTMLButtonElement).disabled).toBe(false),
     );

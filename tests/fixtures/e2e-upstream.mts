@@ -3,8 +3,8 @@ import { createServer } from "node:http";
 import {
   createFictionalDescriptors,
   createFictionalGameEntries,
-  createFictionalGameZip,
   createGameZip,
+  createMixedNameFictionalGameZip,
 } from "./games.ts";
 import { startSyntheticMediaServers } from "./media.ts";
 import { startSyntheticUpstream } from "./upstream.ts";
@@ -15,7 +15,7 @@ const unsupportedDescriptors = structuredClone(createFictionalDescriptors());
   unsupportedDescriptors["game.json"] as { dynamics: Array<{ type: string }> }
 ).dynamics[0]!.type = "BOARD";
 const packages = new Map<string, Buffer>([
-  ["/objects/mixed.zip", Buffer.from(await createFictionalGameZip())],
+  ["/objects/mixed.zip", Buffer.from(await createMixedNameFictionalGameZip())],
   [
     "/objects/unsupported.zip",
     Buffer.from(

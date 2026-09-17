@@ -234,9 +234,7 @@ export function GameRunner({
           error instanceof DeliveryError
             ? error.reason
             : error instanceof PackageError
-              ? error.category === "inaccessible"
-                ? "inaccessible"
-                : "runtime"
+              ? "runtime"
               : "load",
         requestId: nextRequestId,
         type: "LOAD_FAILED",
@@ -288,11 +286,9 @@ export function GameRunner({
         ? englishMessages.games.audioFailure
         : state.reason === "runtime"
           ? englishMessages.games.unsupported
-          : state.reason === "inaccessible"
-            ? englishMessages.games.inaccessible
-            : state.reason === "unavailable"
-              ? englishMessages.games.unavailable
-              : englishMessages.games.retryable;
+          : state.reason === "unavailable"
+            ? englishMessages.games.unavailable
+            : englishMessages.games.retryable;
 
   const activeState =
     state.status === "prompt" ||

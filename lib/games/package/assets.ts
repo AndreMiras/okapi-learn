@@ -38,9 +38,13 @@ function pngDimensions(bytes: Uint8Array): ImageDimensions {
       if (type !== "IHDR" || length !== 13) packageFailure();
       width = view.getUint32(offset + 8);
       height = view.getUint32(offset + 12);
+      const bitDepth = bytes[offset + 16];
+      const colorType = bytes[offset + 17];
       if (
-        bytes[offset + 16] !== 8 ||
-        ![0, 2, 3, 4, 6].includes(bytes[offset + 17]!) ||
+        !(
+          (bitDepth === 8 && [0, 2, 3, 4, 6].includes(colorType!)) ||
+          (bitDepth === 1 && colorType === 3)
+        ) ||
         bytes[offset + 18] !== 0 ||
         bytes[offset + 19] !== 0 ||
         bytes[offset + 20] !== 0

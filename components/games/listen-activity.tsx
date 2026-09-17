@@ -8,6 +8,7 @@ import type { ListenDynamic } from "@/lib/games/package/types";
 import { shuffle, type RandomSource } from "@/lib/games/runtime/shuffle";
 
 import { assetUrls, type ActivityProps } from "./activity-types";
+import { pictureControlName } from "./element-control-name";
 import { GameAudioError } from "./game-audio";
 
 type ListenActivityProps = ActivityProps &
@@ -39,7 +40,7 @@ export function ListenActivity({
   });
   const [targetIndex, setTargetIndex] = useState(0);
   const [replaying, setReplaying] = useState(false);
-  const firstChoice = useRef<HTMLButtonElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
   const feedbackStarted = useRef(false);
   const target = targets[targetIndex]!;
 
@@ -128,8 +129,8 @@ export function ListenActivity({
   ]);
 
   useEffect(() => {
-    if (phase === "accepting-input") firstChoice.current?.focus();
-  }, [phase, targetIndex]);
+    if (phase === "accepting-input") heading.current?.focus();
+  }, [phase]);
 
   return (
     <section aria-labelledby="listen-heading" className="grid gap-5">
@@ -137,6 +138,8 @@ export function ListenActivity({
         <h2
           className="m-0 font-['Fraunces_Variable',serif] text-2xl"
           id="listen-heading"
+          ref={heading}
+          tabIndex={-1}
         >
           Listen and choose
         </h2>
@@ -147,7 +150,7 @@ export function ListenActivity({
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {choices.map((choice, index) => (
           <button
-            aria-label={choice.label}
+            aria-label={pictureControlName(choice.label, index)}
             className="min-h-24 rounded-2xl border-2 border-[#16324f] bg-white p-3 shadow-[3px_3px_0_#16324f] disabled:opacity-70 focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#dd796f]"
             disabled={phase !== "accepting-input" || replaying}
             key={choice.id}
@@ -159,7 +162,6 @@ export function ListenActivity({
               if (targetIndex + 1 === targets.length) onComplete();
               else onCorrect(true);
             }}
-            ref={index === 0 ? firstChoice : undefined}
             type="button"
           >
             <img
