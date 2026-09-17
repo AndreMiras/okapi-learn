@@ -50,6 +50,11 @@ storage, Redis, caches, or the filesystem. Okapi Learn does not call
 `RegisterActivity`; reveal and completion apply only to the current browser visit
 or play and are not official progress.
 
+Activities use their original pictures and audio. Package element names are
+optional supplementary text; unnamed controls receive neutral picture or hotspot
+identifiers. Pointer, touch, and sighted keyboard play are supported, but complete
+screen-reader descriptions of the visual choices may be unavailable.
+
 ## Local development
 
 Use Node.js 24 and npm. Create local server-only environment values based on `.env.example`; never place account credentials in environment files.
@@ -109,7 +114,7 @@ The MVP supports one self-hosted Node process behind an HTTPS reverse proxy. It 
 
 ## Known limits
 
-Eight game dynamic types (`BOARD`, `MEMORY`, `GRID`, `CONNECT`, `DIFFERENCES`, `PAINT`, `DRAGCONTAINER`, and `FILLTHEGAP`) remain unsupported, as do game maps/sections, books, durable progress, downloads, offline or background playback, casting, learner photos, push notifications, terms acceptance, activation claims, and full official-engine parity. Pending terms and tester modes fail closed and must be handled through an official channel.
+Eight game dynamic types (`BOARD`, `MEMORY`, `GRID`, `CONNECT`, `DIFFERENCES`, `PAINT`, `DRAGCONTAINER`, and `FILLTHEGAP`) remain unsupported, as do game maps/sections, books, durable progress, downloads, offline or background playback, casting, learner photos, push notifications, terms acceptance, activation claims, complete nonvisual game semantics, and full official-engine parity. Pending terms and tester modes fail closed and must be handled through an official channel.
 
 English is the only enabled interface locale. Spanish and Catalan require complete human review before release.
 

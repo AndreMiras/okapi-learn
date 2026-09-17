@@ -36,6 +36,13 @@ revocable in-memory Blob URLs. Packages, compatibility results, and completion
 state are not written to Redis, disk, browser storage, caches, or upstream
 progress APIs.
 
+Supported activities use the package's original images, hotspot geometry, and
+audio. Interactive element names are optional supplementary text and do not
+determine package acceptance or correctness. The browser supplies stable neutral
+control identifiers when text is unavailable. Operators should verify visual,
+pointer, touch, and keyboard play; these identifiers do not promise that visual
+choices can be independently understood with a screen reader.
+
 The built-in limiter permits six starts per minute per session and two concurrent
 fetches per process. These are defense in depth only. Horizontally scaled and
 serverless production deployments require authoritative host-level rate,

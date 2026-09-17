@@ -5,6 +5,7 @@
 /.tools/
 /.runtime/
 /thoughts/
+/TODO.md
 
 # Local credentials and environment values
 .env*
