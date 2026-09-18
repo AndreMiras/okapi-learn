@@ -71,7 +71,7 @@ jobs:
         if: always()
         run: npm run scan:diagnostics
       - if: failure() && steps.redaction.outcome == 'success'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: functional-e2e-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -94,7 +94,7 @@ jobs:
         if: always()
         run: npm run scan:diagnostics
       - if: failure() && steps.redaction.outcome == 'success'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: visual-e2e-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
