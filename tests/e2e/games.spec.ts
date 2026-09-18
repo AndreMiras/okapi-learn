@@ -317,6 +317,9 @@ test("rejects stale activity aliases and clears an active play on expiry", async
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login\?reason=signed-out$/);
   await signIn(page, testInfo);
+  await expect(
+    page.getByRole("heading", { name: "Nova's catalog" }),
+  ).toBeVisible();
   await page.goto(new URL(staleHref!, gameOrigin).href);
   await expect(
     page.getByRole("heading", { name: "This catalog item cannot be opened" }),

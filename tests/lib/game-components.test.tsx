@@ -436,6 +436,7 @@ describe("activity renderers", () => {
         dynamic={dynamic}
         generationId={1}
         phase="accepting-input"
+        random={() => 0.99}
       />,
     );
     const wrong = screen.getByRole("button", {

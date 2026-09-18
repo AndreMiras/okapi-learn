@@ -99,5 +99,12 @@ export default defineConfig({
       timeout: 30_000,
       url: "http://localhost:3101",
     },
+    {
+      command:
+        "NODE_ENV=test MYLOCKER_API_BASE_URL=http://127.0.0.1:4100 PUBLIC_APP_ORIGIN=http://localhost:3106 SESSION_SECRET=a-fictional-e2e-unready-secret-long-enough SESSION_TTL_SECONDS=3600 KV_REST_API_URL= KV_REST_API_TOKEN= VERCEL=1 ENABLE_VIDEO_PLAYBACK=false ENABLE_AUDIO_PLAYBACK=false ENABLE_GAME_PLAYBACK=false ALLOWED_VIDEO_ORIGINS= ALLOWED_AUDIO_ORIGINS= ALLOWED_GAME_ORIGINS= npm start -- --hostname localhost --port 3106",
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+      url: "http://localhost:3106/api/health",
+    },
   ],
 });
