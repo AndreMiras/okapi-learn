@@ -45,8 +45,10 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           Private by default
         </h2>
         <p>
-          Your temporary session stays in this server process for no more than
-          eight hours. Restarting Okapi Learn signs everyone out.
+          Your temporary session stays server-side for no more than eight hours,
+          either in this server process or encrypted in the deployment&apos;s
+          shared session store. The browser receives only an opaque session
+          cookie.
         </p>
         <p>
           If terms need attention, an adult must use an official Kids&amp;Us

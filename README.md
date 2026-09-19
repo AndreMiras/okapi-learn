@@ -21,8 +21,8 @@ The applications share an umbrella identity, not an API or session. Okapi Learn 
 ## Privacy and security
 
 - Credentials are sent once from the browser to this server and exchanged with the fixed MyLocker API. Passwords are never retained or replayed.
-- The upstream token and minimized learner/catalog graph remain in process memory. The browser receives only an opaque authenticated `HttpOnly` session cookie.
-- Sessions have a non-sliding lifetime of at most eight hours. Restarting the single server process signs everyone out.
+- The upstream token and minimized learner/catalog graph remain server-side: in process memory for a single persistent process, or AES-GCM encrypted in Upstash Redis for Vercel and multi-instance deployments. The browser receives only an opaque authenticated `HttpOnly` session cookie.
+- Sessions have a non-sliding lifetime of at most eight hours. Restarting clears memory-backed sessions; Redis-backed sessions remain available until sign-out or expiry. Rotating `SESSION_SECRET` makes all existing session cookies unusable.
 - Stored learner data is limited to a display name and the relationships needed to select an owned catalog. Videos may retain up to three linked game IDs and validated viewed-learner references; the browser receives only random aliases and a safe viewed boolean. Surnames, birth dates, photos, game maps/sections/URLs/progress, and unknown response fields are discarded.
 - Personalized pages are private and `no-store`. There is no analytics, advertising, session replay, or production payload tracing.
 - Sign out, then sign in again to refresh the catalog. Okapi Learn does not silently refresh with a retained password.
@@ -110,7 +110,7 @@ Maintainers can regenerate visual baselines explicitly with `npm run test:e2e:vi
 
 ## Deployment
 
-The MVP supports one self-hosted Node process behind an HTTPS reverse proxy. It is intentionally not horizontally scalable. The in-memory store accepts at most 500 active sessions; expiry sweeps reclaim capacity. See `docs/operator-guide.md` for configuration, health checks, capacity, and rollback.
+Without Redis, run one persistent self-hosted Node process behind an HTTPS reverse proxy. This process-local fallback accepts at most 500 active sessions and is not horizontally scalable. Vercel and multi-instance deployments use encrypted Upstash Redis sessions; Vercel fails closed when Redis is not configured. See `docs/operator-guide.md` for configuration, health checks, capacity, and rollback.
 
 ## Known limits
 

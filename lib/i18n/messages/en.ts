@@ -9,7 +9,7 @@ export const englishMessages = {
       "Production audio, video, and game retrieval are independently disabled until their release checks are approved. Video-linked activities support only complete LISTEN, EXPLORE, and WILDCARD packages using their original pictures and audio. Element names are optional, so complete screen-reader descriptions may be unavailable. Eight other game types, maps, sections, books, downloads, offline use, durable progress, push, and learner photos are not included.",
     privacyHeading: "Privacy first",
     privacyText:
-      "There is no analytics or advertising. Credentials are exchanged once by the server and never retained. Game packages are delivered through a same-origin alias route, validated in browser memory, and discarded without storing package content or reporting completion to MyLocker. Authenticated sessions are temporary and process restarts sign everyone out.",
+      "There is no analytics or advertising. Credentials are exchanged once by the server and never retained. Game packages are delivered through a same-origin alias route, validated in browser memory, and discarded without storing package content or reporting completion to MyLocker. Authenticated sessions remain server-side for no more than eight hours, using process memory or encrypted shared storage according to the deployment.",
     refreshHeading: "Refresh behavior",
     refreshText:
       "Catalog data remains fixed for an authenticated session. Sign in again to refresh it; Okapi Learn does not store or silently replay a password.",

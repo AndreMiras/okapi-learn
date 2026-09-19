@@ -15,4 +15,4 @@
 - [ ] Desktop/mobile, keyboard, focus, screen reader, reduced motion, zoom, loading, empty, error, and logout checks pass.
 - [ ] The working name has completed trademark and domain review.
 - [ ] Any authorized service smoke test leaves browser/server diagnostics clean and retains no sensitive or licensed artifact.
-- [ ] Rollback is demonstrated independently for games and media; restart invalidates all sessions.
+- [ ] Rollback is demonstrated independently for games and media; configured-store restart behavior is verified, and `SESSION_SECRET` rotation makes existing session cookies unusable.
