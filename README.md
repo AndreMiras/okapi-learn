@@ -23,7 +23,7 @@ The applications share an umbrella identity, not an API or session. Okapi Learn 
 - Credentials are sent once from the browser to this server and exchanged with the fixed MyLocker API. Passwords are never retained or replayed.
 - The upstream token and minimized learner/catalog graph remain server-side: in process memory for a single persistent process, or AES-GCM encrypted in Upstash Redis for Vercel and multi-instance deployments. The browser receives only an opaque authenticated `HttpOnly` session cookie.
 - Sessions have a non-sliding lifetime of at most eight hours. Restarting clears memory-backed sessions; Redis-backed sessions remain available until sign-out or expiry. Rotating `SESSION_SECRET` makes all existing session cookies unusable.
-- Stored learner data is limited to a display name and the relationships needed to select an owned catalog. Videos may retain up to three linked game IDs and validated viewed-learner references; the browser receives only random aliases and a safe viewed boolean. Surnames, birth dates, photos, game maps/sections/URLs/progress, and unknown response fields are discarded.
+- Stored learner data is limited to a display name and bounded relationships needed to select an owned catalog. Videos may retain up to three linked game IDs and validated viewed-learner references. A course map may retain ordered section front-artwork URLs, dimensions, positions, and learner-filtered viewed/finished references. Raw IDs, progress lists, and artwork source URLs stay server-side; the browser receives random aliases, coordinates, and learner-specific booleans. Surnames, birth dates, photos, back artwork, section lists, ZIP URLs, and unknown response fields are discarded.
 - Personalized pages are private and `no-store`. There is no analytics, advertising, session replay, or production payload tracing.
 - Sign out, then sign in again to refresh the catalog. Okapi Learn does not silently refresh with a retained password.
 
@@ -33,27 +33,35 @@ Catalog metadata is available without playback. Production audio and video are i
 
 When an approved direct-media gate is enabled, the selected URL is disclosed to the authorized browser and used only by a native `<audio>` or `<video>` element. Okapi Learn does not proxy, download, transform, cache, or persist playback progress. Synthetic loopback media exists only for automated browser verification.
 
-## Video-linked activities
+## Games and activities
 
-Okapi Learn includes a bounded clean-room runtime for complete video-linked
-packages containing only `LISTEN`, `EXPLORE`, and `WILDCARD`. Production package
-retrieval is independently disabled by default. Operators can enable it for
-authorized accounts by configuring the exact package redirect origin.
+Okapi Learn includes a bounded clean-room runtime for video-linked games and
+standalone games on a course map. Only complete packages composed of `LISTEN`,
+`EXPLORE`, `WILDCARD`, and the supported `PAINT` schema can run; one incompatible
+dynamic rejects the entire package before play. Production game retrieval and
+map artwork are disabled together by default. Operators must separately approve
+the exact package redirect and map artwork origins before enabling games.
 
 After explicit selection, the browser requests an alias-only same-origin route.
-The server validates ownership, follows one approved package redirect, and
-returns a bounded private/no-store ZIP without exposing upstream IDs or URLs. The
-browser validates and extracts the package in memory, uses revocable Blob URLs,
-and releases it on completion, exit, logout, expiry, failure, or unmount. No
-package, compatibility result, reveal state, or completion is stored in browser
-storage, Redis, caches, or the filesystem. Okapi Learn does not call
-`RegisterActivity`; reveal and completion apply only to the current browser visit
-or play and are not official progress.
+The server validates the exact video or map relationship, follows one approved
+package redirect, and returns a bounded private/no-store ZIP without exposing
+upstream IDs or URLs. Map front artwork is fetched through a separate authenticated,
+bounded, same-origin alias route. The browser validates and extracts packages in
+memory, uses revocable Blob URLs, and releases them on completion, exit, logout,
+expiry, failure, or unmount. No package, artwork, compatibility result, reveal
+state, or completion is stored in browser storage, Redis, caches, or the
+filesystem. Okapi Learn does not call `RegisterActivity`. A standalone completion
+unlocks the next actual map position only within the current learner view; reload,
+new tab, logout, expiry, or learner change restores the initial upstream seed.
+Video-linked completions apply only to that play. Neither is official progress.
 
 Activities use their original pictures and audio. Package element names are
 optional supplementary text; unnamed controls receive neutral picture or hotspot
 identifiers. Pointer, touch, and sighted keyboard play are supported, but complete
-screen-reader descriptions of the visual choices may be unavailable.
+screen-reader descriptions of the visual choices may be unavailable. `PAINT`
+provides neutral colour and target controls, text feedback, and replay, but the
+exercise remains visually colour-dependent; neutral names do not provide full
+nonvisual educational equivalence.
 
 ## Local development
 
@@ -86,6 +94,7 @@ npm run check:dependencies
 npm run check:licenses
 npm run scan:secrets
 npm run scan:personal-data
+npm run scan:diagnostics
 ```
 
 Automated tests use fictional loopback fixtures only. They must never use `.env.mylocker` or contact a production service.
@@ -114,7 +123,7 @@ Without Redis, run one persistent self-hosted Node process behind an HTTPS rever
 
 ## Known limits
 
-Eight game dynamic types (`BOARD`, `MEMORY`, `GRID`, `CONNECT`, `DIFFERENCES`, `PAINT`, `DRAGCONTAINER`, and `FILLTHEGAP`) remain unsupported, as do game maps/sections, books, durable progress, downloads, offline or background playback, casting, learner photos, push notifications, terms acceptance, activation claims, complete nonvisual game semantics, and full official-engine parity. Pending terms and tester modes fail closed and must be handled through an official channel.
+Seven game dynamic types (`BOARD`, `MEMORY`, `GRID`, `CONNECT`, `DIFFERENCES`, `DRAGCONTAINER`, and `FILLTHEGAP`) remain unsupported, as do unobserved `PAINT` variants, section-list navigation, books, durable progress, downloads, offline or background playback, casting, learner photos, push notifications, terms acceptance, activation claims, complete nonvisual game semantics, and full official-engine parity. Pending terms and tester modes fail closed and must be handled through an official channel.
 
 English is the only enabled interface locale. Spanish and Catalan require complete human review before release.
 

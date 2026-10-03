@@ -18,6 +18,10 @@ const prohibited = [
   "video-moonlight",
   "video-comet",
   "map-orbit",
+  "section-one-front.png",
+  "section-three-front.png",
+  "/maps/section-1.png",
+  "/maps/section-3.png",
   "game-starlight",
   "game-comet",
   "game-constellation",
@@ -32,19 +36,30 @@ const prohibited = [
   "games.example.test",
   "127.0.0.1:4300",
   "127.0.0.1:4400",
+  "/api/learn/learner-nova/game-map/",
   "/api/Alumnes/GetGame/",
   "/objects/mixed.zip",
+  "/objects/paint-mixed.zip",
   "/objects/unsupported.zip",
   "/objects/retry-malformed.zip",
   "blob:http://",
   "blob:https://",
   "dynamics/listen-all.json",
+  "dynamics/paint.json",
+  "images/paint-background.png",
+  "images/paint-overlay-a.png",
+  "palette-a",
+  "spot-a",
+  "Fictional colour puzzle",
   "images/amber.png",
   "audio/prompt.mp3",
   '"selectableElements"',
   '"waitSeconds"',
 ];
-const prohibitedBytes = [Buffer.from([0x50, 0x4b, 0x03, 0x04])];
+const prohibitedBytes = [
+  Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+];
 const findings = [];
 function scan(path, visual) {
   if (!existsSync(path)) return;
@@ -54,6 +69,7 @@ function scan(path, visual) {
   }
   if (visual) {
     const extension = extname(path).toLowerCase();
+    // Only reviewed fictional visual comparisons may contain PNG bytes.
     if (extension === ".png") return;
     if (!textualVisualExtensions.has(extension)) {
       findings.push(`${path}: unsupported visual artifact extension`);

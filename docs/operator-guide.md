@@ -28,21 +28,40 @@ Media, game package, and game artwork origins must not share the application hos
 
 ## Game package boundary
 
-Game playback supports only complete video-linked packages composed of `LISTEN`,
-`EXPLORE`, and `WILDCARD`. The browser calls an authenticated same-origin route;
-the server resolves random aliases, follows one allowlisted redirect, and returns
+Game playback supports complete video-linked and course-map standalone packages
+composed of `LISTEN`, `EXPLORE`, `WILDCARD`, and the bounded observed `PAINT`
+schema. Unsupported types or variants reject the entire package before play.
+The browser calls an authenticated same-origin route after explicit selection;
+the server verifies the exact video or map relationship, follows one allowlisted redirect, and returns
 at most 25 MiB with private, `no-store` headers. The browser validates at most 500
 archive entries and 50 MiB of declared expanded content before creating
 revocable in-memory Blob URLs. Packages, compatibility results, and completion
 state are not written to Redis, disk, browser storage, caches, or upstream
-progress APIs.
+progress APIs. The course-map graph and raw front-artwork URLs stay in the
+server session; browser map positions receive only aliases, coordinates, and
+learner-specific viewed/finished booleans. Completing a standalone game advances
+the map only in the mounted learner view. Reload, new tab, logout, expiry, or
+learner change restores the upstream seed; no `RegisterActivity` call is made.
+
+Map section front artwork is delivered through a separate authenticated
+same-origin alias route. It selects a session-held URL from the learner's map,
+checks `ALLOWED_GAME_ARTWORK_ORIGINS` independently of package origins, rejects
+redirects, and validates PNG content under a 10 MiB byte limit and timeout.
+Responses are private and `no-store`; source URLs, raw IDs, back images, and
+artwork bytes are not browser-visible capabilities or persisted assets. The map
+destination remains visible with the game gate off, but artwork and package
+retrieval stop. Empty visual sections do not consume progression positions.
 
 Supported activities use the package's original images, hotspot geometry, and
 audio. Interactive element names are optional supplementary text and do not
 determine package acceptance or correctness. The browser supplies stable neutral
 control identifiers when text is unavailable. Operators should verify visual,
 pointer, touch, and keyboard play; these identifiers do not promise that visual
-choices can be independently understood with a screen reader.
+choices can be independently understood with a screen reader. `PAINT` provides
+neutral colour/target controls and text/audio feedback, but remains visually
+colour-dependent and lacks complete nonvisual educational equivalence. Section
+lists, books, seven other dynamic types, and unobserved `PAINT` variants are not
+supported.
 
 The built-in limiter permits six starts per minute per session and two concurrent
 fetches per process. These are defense in depth only. Horizontally scaled and
@@ -70,7 +89,7 @@ production retrieval.
 2. Start the built artifact with the documented environment and require successful health/readiness checks.
 3. Confirm the deployment can create, read, and delete an Upstash-backed session.
 4. If a separately approved media gate is released, change only that type's flag and exact origin list.
-5. Enable games only after a dated accepted-risk sign-off, then change only `ENABLE_GAME_PLAYBACK` and `ALLOWED_GAME_ORIGINS`.
-6. Roll back games by setting `ENABLE_GAME_PLAYBACK=false`, clearing `ALLOWED_GAME_ORIGINS`, and restarting or redeploying. Confirm readiness and verify package requests stop. No package or progress cleanup is required because neither is persisted.
+5. Enable games only after a dated operator accepted-risk opt-in and independent reviews of both exact origins; record the approved origins, host controls, and rollback procedure, then set `ENABLE_GAME_PLAYBACK=true`, `ALLOWED_GAME_ORIGINS`, and `ALLOWED_GAME_ARTWORK_ORIGINS` together.
+6. Roll back games by setting `ENABLE_GAME_PLAYBACK=false`, clearing both `ALLOWED_GAME_ORIGINS` and `ALLOWED_GAME_ARTWORK_ORIGINS`, and restarting or redeploying. Confirm readiness and verify both package and artwork requests stop. No package, artwork, or progress cleanup is required because none is persisted.
 7. Roll back media independently by setting its playback flags to `false` and restarting.
 8. Roll back the application artifact if needed; there are no schema migrations.

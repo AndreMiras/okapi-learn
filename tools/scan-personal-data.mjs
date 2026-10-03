@@ -14,6 +14,20 @@ const prohibitedExtensions = new Set([
 ]);
 const prohibitedGameDescriptorPath =
   /(?:^|\/)(?:game\.json|(?:dynamics?|game-descriptors?)\/[^/]+\.json)$/i;
+// Generated fixture identifiers belong in tests, never in shipped application source.
+const fictionalBrowserLeaks = [
+  "learner-nova",
+  "course-orbit",
+  "map-orbit",
+  "game-aurora",
+  "game-nebula",
+  "section-one-front.png",
+  "section-three-front.png",
+  "images.example.test",
+  "games.example.test",
+  "dynamics/paint.json",
+  "images/paint-background.png",
+];
 const findings = [];
 for (const path of repositoryFiles()) {
   if (prohibitedGameDescriptorPath.test(path)) {
@@ -31,6 +45,12 @@ for (const path of repositoryFiles()) {
   }
   const text = readableText(path);
   if (text === null || path.startsWith("tools/")) continue;
+  if (
+    /^(?:app|components|lib)\//.test(path) &&
+    fictionalBrowserLeaks.some((marker) => text.includes(marker))
+  ) {
+    findings.push(`${path}: fictional fixture data in application source`);
+  }
   text.split("\n").forEach((line, index) => {
     if (
       /https?:\/\/[^\s"')]+\?(?:[^\s]*)(?:sig|signature|token|grant|key|expires)=/i.test(

@@ -6,10 +6,10 @@ export const englishMessages = {
       "Okapi Learn is an unofficial client for authorized users. It is not a Kids&Us product and does not use official branding, characters, artwork, or application assets.",
     limitationsHeading: "Known limitations",
     limitationsText:
-      "Production audio, video, and game retrieval are independently disabled until their release checks are approved. Video-linked activities support only complete LISTEN, EXPLORE, and WILDCARD packages using their original pictures and audio. Element names are optional, so complete screen-reader descriptions may be unavailable. Eight other game types, maps, sections, books, downloads, offline use, durable progress, push, and learner photos are not included.",
+      "Production audio, video, and game retrieval are disabled until their release checks are approved. Video-linked games and standalone course-map games support only complete LISTEN, EXPLORE, WILDCARD, and bounded PAINT packages using their original pictures and audio. Seven other game types, unobserved PAINT variants, section-list navigation, books, downloads, offline use, durable progress, push, and learner photos are not included. Neutral PAINT controls do not remove the exercise's visual colour dependence or provide complete nonvisual access.",
     privacyHeading: "Privacy first",
     privacyText:
-      "There is no analytics or advertising. Credentials are exchanged once by the server and never retained. Game packages are delivered through a same-origin alias route, validated in browser memory, and discarded without storing package content or reporting completion to MyLocker. Authenticated sessions remain server-side for no more than eight hours, using process memory or encrypted shared storage according to the deployment.",
+      "There is no analytics or advertising. Credentials are exchanged once by the server and never retained. Map artwork and game packages use authenticated same-origin alias routes; packages are validated in browser memory and discarded without storing content or reporting completion to MyLocker. Standalone map unlocks last only within the current learner view and reset on reload or learner change. Authenticated sessions remain server-side for no more than eight hours, using process memory or encrypted shared storage according to the deployment.",
     refreshHeading: "Refresh behavior",
     refreshText:
       "Catalog data remains fixed for an authenticated session. Sign in again to refresh it; Okapi Learn does not store or silently replay a password.",
