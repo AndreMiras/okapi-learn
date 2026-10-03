@@ -27,6 +27,7 @@ import { GameAudioController } from "./game-audio";
 import { GameStage } from "./game-stage";
 import { GameStatus } from "./game-status";
 import { ListenActivity } from "./listen-activity";
+import { PaintActivity } from "./paint-activity";
 import { useGameAssets } from "./use-game-assets";
 import { WildcardActivity } from "./wildcard-activity";
 
@@ -97,6 +98,8 @@ function ActivityRenderer({
     return <ListenActivity {...common} dynamic={dynamic} />;
   if (dynamic.type === "EXPLORE")
     return <ExploreActivity {...common} dynamic={dynamic} />;
+  if (dynamic.type === "PAINT")
+    return <PaintActivity {...common} dynamic={dynamic} />;
   return <WildcardActivity {...common} dynamic={dynamic} />;
 }
 

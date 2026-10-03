@@ -7,6 +7,9 @@ import {
   createFictionalGameZip,
   createGameZip,
   createIndexedPng,
+  createPaintFictionalDescriptors,
+  createPaintFictionalGameEntries,
+  createNumericPaintFictionalDescriptors,
   createPng,
 } from "@/tests/fixtures/games";
 
@@ -40,12 +43,196 @@ describe("prepareGamePackage", () => {
     revokeObjectURL.mockClear();
     vi.stubGlobal(
       "createImageBitmap",
-      vi.fn(async () => ({ close, height: 6, width: 8 })),
+      vi.fn(async (blob: Blob) => {
+        const header = new DataView(await blob.arrayBuffer());
+        return {
+          close,
+          height: header.getUint32(20),
+          width: header.getUint32(16),
+        };
+      }),
     );
     vi.stubGlobal("URL", { createObjectURL, revokeObjectURL });
   });
 
   afterEach(() => vi.unstubAllGlobals());
+
+  it("preflights a mixed PAINT package with nullable colour images and case-insensitive references", async () => {
+    const prepared = await prepareGamePackage(
+      await createGameZip(createPaintFictionalGameEntries()),
+      signal(),
+    );
+    const paint = prepared.game.dynamics.at(-1);
+    expect(paint?.type).toBe("PAINT");
+    if (paint?.type !== "PAINT") throw new Error("Expected paint");
+    expect(paint).toMatchObject({
+      backgroundWidth: 320,
+      backgroundHeight: 240,
+    });
+    expect(paint.colours.map(({ image }) => image)).toEqual([null, null]);
+    expect(paint.elements.map(({ colourId }) => colourId)).toEqual([
+      "PALETTE-A",
+      "palette-b",
+    ]);
+    expect(createObjectURL).not.toHaveBeenCalled();
+    prepared.assets.dispose();
+  });
+
+  it("preflights numeric PAINT palette IDs with absent optional artwork and audio", async () => {
+    const prepared = await prepareGamePackage(
+      await createGameZip(
+        createPaintFictionalGameEntries(
+          createNumericPaintFictionalDescriptors(),
+        ),
+      ),
+      signal(),
+    );
+    const paint = prepared.game.dynamics.at(-1);
+    expect(paint?.type).toBe("PAINT");
+    if (paint?.type !== "PAINT") throw new Error("Expected paint");
+    expect(paint.colours.map(({ id, image }) => [id, image])).toEqual([
+      ["1", null],
+      ["2", null],
+    ]);
+    expect(paint.elements.map(({ colourId }) => colourId)).toEqual(["1", "2"]);
+    prepared.assets.dispose();
+  });
+
+  it.each([1.5, -1, 1_000_001, null, {}])(
+    "rejects invalid numeric PAINT references %s",
+    async (reference) => {
+      const source = createNumericPaintFictionalDescriptors() as Record<
+        string,
+        any
+      >;
+      source["dynamics/paint.json"].elements[0].colour = reference;
+      await expect(
+        prepareGamePackage(
+          await createGameZip(createPaintFictionalGameEntries(source)),
+          signal(),
+        ),
+      ).rejects.toMatchObject({ category: "unsupported" });
+    },
+  );
+
+  it.each([
+    [
+      "missing targets",
+      (paint: any) => {
+        paint.elements = [];
+      },
+    ],
+    [
+      "too many targets",
+      (paint: any) => {
+        paint.elements = Array.from({ length: 33 }, () => paint.elements[0]);
+      },
+    ],
+    [
+      "missing colours",
+      (paint: any) => {
+        paint.colours = [];
+      },
+    ],
+    [
+      "too many colours",
+      (paint: any) => {
+        paint.colours = Array.from({ length: 17 }, () => paint.colours[0]);
+      },
+    ],
+    [
+      "duplicate targets",
+      (paint: any) => {
+        paint.elements[1].Id = paint.elements[0].Id;
+      },
+    ],
+    [
+      "ambiguous colours",
+      (paint: any) => {
+        paint.colours[1].Id = "PALETTE-A";
+      },
+    ],
+    [
+      "missing reference",
+      (paint: any) => {
+        paint.elements[0].colour = "unknown";
+      },
+    ],
+    [
+      "wrong reference kind",
+      (paint: any) => {
+        paint.elements[0].colour = null;
+      },
+    ],
+    [
+      "missing overlay",
+      (paint: any) => {
+        paint.elements[0].image = null;
+      },
+    ],
+    [
+      "missing background",
+      (paint: any) => {
+        paint.backgroundImage = null;
+      },
+    ],
+    [
+      "empty frames",
+      (paint: any) => {
+        paint.colours[0].frames = [];
+      },
+    ],
+    [
+      "reversed frame",
+      (paint: any) => {
+        paint.elements[0].frames[0].x2 = 20;
+      },
+    ],
+    [
+      "out-of-bounds frame",
+      (paint: any) => {
+        paint.colours[0].frames[0].y2 = 241;
+      },
+    ],
+    [
+      "fractional frame",
+      (paint: any) => {
+        paint.elements[0].frames[0].x1 = 1.5;
+      },
+    ],
+    [
+      "malformed list",
+      (paint: any) => {
+        paint.colours = {};
+      },
+    ],
+  ] as const)("rejects PAINT %s atomically", async (_name, mutate) => {
+    const source = structuredClone(createPaintFictionalDescriptors()) as Record<
+      string,
+      any
+    >;
+    mutate(source["dynamics/paint.json"]);
+    await expect(
+      prepareGamePackage(
+        await createGameZip(createPaintFictionalGameEntries(source)),
+        signal(),
+      ),
+    ).rejects.toMatchObject({ category: "unsupported" });
+    expect(createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("rejects orphaned PAINT assets and missing referenced images", async () => {
+    const entries = createPaintFictionalGameEntries();
+    for (const variant of [
+      entries.filter(({ name }) => name !== "images/paint-overlay-a.png"),
+      [...entries, { name: "images/orphan.png", bytes: createPng() }],
+    ]) {
+      await expect(
+        prepareGamePackage(await createGameZip(variant), signal()),
+      ).rejects.toMatchObject({ category: "unsupported" });
+      expect(createObjectURL).not.toHaveBeenCalled();
+    }
+  });
 
   it("atomically prepares all three types and both observed LISTEN variants", async () => {
     const prepared = await prepareGamePackage(
@@ -170,6 +357,20 @@ describe("prepareGamePackage", () => {
       backgroundHeight: 6,
       backgroundWidth: 8,
     });
+    prepared.assets.dispose();
+  });
+
+  it("accepts a decodable 4-bit indexed PNG in an otherwise bounded package", async () => {
+    const entries = createPaintFictionalGameEntries().map((entry) =>
+      entry.name === "images/paint-overlay-a.png"
+        ? { ...entry, bytes: createIndexedPng(320, 240, 4) }
+        : entry,
+    );
+    const prepared = await prepareGamePackage(
+      await createGameZip(entries),
+      signal(),
+    );
+    expect(prepared.game.dynamics.at(-1)?.type).toBe("PAINT");
     prepared.assets.dispose();
   });
 

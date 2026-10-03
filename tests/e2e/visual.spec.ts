@@ -18,6 +18,7 @@ async function signIn(
 
 async function installImmediateGameAudio(page: Page) {
   await page.addInitScript(() => {
+    Math.random = () => 0.99;
     class ImmediateAudio {
       onended: (() => void) | null = null;
       onerror: (() => void) | null = null;
@@ -95,6 +96,7 @@ test("@visual fictional desktop and mobile release states", async ({
 });
 
 test("@visual fictional game states", async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
   await installImmediateGameAudio(page);
   await page.request.post("http://127.0.0.1:4300/__fixture__/reset");
   await signIn(
@@ -163,4 +165,38 @@ test("@visual fictional game states", async ({ page }, testInfo) => {
   await page.getByRole("button", { name: "Play activity" }).click();
   await page.getByRole("alert").waitFor();
   await capture(page, "game-unsupported.png");
+
+  await page.getByRole("button", { name: "Exit activity" }).click();
+  await page.getByRole("link", { name: /Back to catalog/ }).click();
+  await page.getByRole("link", { name: /Game map/ }).click();
+  await page.getByRole("link", { name: "Game 2, available" }).click();
+  await page.getByRole("button", { name: "Play activity" }).click();
+  for (const name of [
+    "Picture 1",
+    "Picture 2",
+    "Picture 3: Shared picture",
+    "Picture 4: Shared picture",
+  ]) {
+    const button = page.getByRole("button", { name, exact: true });
+    await expect(button).toBeEnabled();
+    await button.click();
+  }
+  const standaloneComet = page.getByRole("button", {
+    name: /^Picture \d+: Green comet$/,
+  });
+  await expect(standaloneComet).toBeEnabled();
+  await standaloneComet.click();
+  const hotspot = page.getByRole("button", { name: "Hotspot 1" });
+  await expect(hotspot).toBeEnabled();
+  await hotspot.click();
+  await page.getByRole("button", { name: "Continue" }).click();
+  const colour = page.getByRole("button", { name: "Colour 1, area 1" });
+  await expect(colour).toBeEnabled();
+  await capture(page, "game-paint-colour.png");
+  await colour.click();
+  await expect(page.getByRole("button", { name: "Target 1" })).toBeEnabled();
+  await capture(page, "game-paint-target.png");
+  await page.getByRole("button", { name: "Target 1" }).click();
+  await expect(page.getByText("1 of 2 complete")).toBeVisible();
+  await capture(page, "game-paint-overlay.png");
 });

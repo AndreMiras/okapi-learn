@@ -178,20 +178,26 @@ describe("createGamePackageClient", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("accepts the bounded octet-stream content type", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValueOnce(redirect())
-        .mockResolvedValueOnce(
-          pkg(packageBytes, { "Content-Type": "application/octet-stream" }),
-        ),
-    );
-    await expect(client().fetchPackage("game-id")).resolves.toEqual(
-      packageBytes,
-    );
-  });
+  it.each(["application/octet-stream", "application/x-zip-compressed"])(
+    "accepts the bounded %s content type",
+    async (contentType) => {
+      vi.stubGlobal(
+        "fetch",
+        vi
+          .fn()
+          .mockResolvedValueOnce(redirect())
+          .mockResolvedValueOnce(
+            pkg(packageBytes, {
+              "Content-Type": contentType,
+              "Content-Length": String(packageBytes.byteLength),
+            }),
+          ),
+      );
+      await expect(client().fetchPackage("game-id")).resolves.toEqual(
+        packageBytes,
+      );
+    },
+  );
 
   it("rejects streamed overflow and cancels the reader", async () => {
     let cancelled = false;

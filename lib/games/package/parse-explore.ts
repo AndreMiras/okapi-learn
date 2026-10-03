@@ -6,6 +6,7 @@ import {
   parseElement,
   record,
   uniqueElements,
+  validateFramesWithinBackground,
   type ParseContext,
 } from "./parse-common";
 import type { ExploreDynamic } from "./types";
@@ -44,18 +45,7 @@ export function parseExplore(
     ),
   );
   uniqueElements(elements);
-  for (const element of elements) {
-    for (const frame of element.frames) {
-      if (
-        frame.x1 >= frame.x2 ||
-        frame.y1 >= frame.y2 ||
-        frame.x2 > dimensions.width ||
-        frame.y2 > dimensions.height
-      ) {
-        packageFailure();
-      }
-    }
-  }
+  validateFramesWithinBackground(elements, dimensions);
   return Object.freeze({
     ...common,
     backgroundHeight: dimensions.height,

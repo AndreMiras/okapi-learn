@@ -1,6 +1,6 @@
 import type { GameAssetRegistry } from "./assets";
 
-export type SupportedDynamicType = "LISTEN" | "EXPLORE" | "WILDCARD";
+export type SupportedDynamicType = "LISTEN" | "EXPLORE" | "PAINT" | "WILDCARD";
 
 export type Frame = Readonly<{
   x1: number;
@@ -49,6 +49,20 @@ export type ExploreDynamic = DynamicCommon &
     type: "EXPLORE";
   }>;
 
+export type PaintTarget = DynamicElement & Readonly<{ colourId: string }>;
+export type PaintColour = Omit<DynamicElement, "image"> &
+  Readonly<{ image: string | null }>;
+
+export type PaintDynamic = DynamicCommon &
+  Readonly<{
+    backgroundHeight: number;
+    backgroundImage: string;
+    backgroundWidth: number;
+    colours: readonly PaintColour[];
+    elements: readonly PaintTarget[];
+    type: "PAINT";
+  }>;
+
 export type WildcardDynamic = DynamicCommon &
   Readonly<{
     automatic: boolean;
@@ -59,7 +73,8 @@ export type WildcardDynamic = DynamicCommon &
     waitSeconds: number;
   }>;
 
-export type SupportedDynamic = ExploreDynamic | ListenDynamic | WildcardDynamic;
+export type SupportedDynamic =
+  ExploreDynamic | ListenDynamic | PaintDynamic | WildcardDynamic;
 
 export type GamePackage = Readonly<{
   book: false;

@@ -5,6 +5,7 @@ import {
   createFictionalGameEntries,
   createGameZip,
   createMixedNameFictionalGameZip,
+  createPaintFictionalGameZip,
   createPng,
 } from "./games.ts";
 import { startSyntheticMediaServers } from "./media.ts";
@@ -18,6 +19,10 @@ const unsupportedDescriptors = structuredClone(createFictionalDescriptors());
 ).dynamics[0]!.type = "BOARD";
 const packages = new Map<string, Buffer>([
   ["/objects/mixed.zip", Buffer.from(await createMixedNameFictionalGameZip())],
+  [
+    "/objects/paint-mixed.zip",
+    Buffer.from(await createPaintFictionalGameZip()),
+  ],
   [
     "/objects/unsupported.zip",
     Buffer.from(
@@ -82,7 +87,10 @@ const packageServer = createServer((request, response) => {
   response.writeHead(200, {
     "Cache-Control": "no-store",
     "Content-Length": bytes.byteLength,
-    "Content-Type": "application/zip",
+    "Content-Type":
+      request.url === "/objects/paint-mixed.zip"
+        ? "application/x-zip-compressed"
+        : "application/zip",
   });
   response.end(bytes);
 });

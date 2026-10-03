@@ -25,6 +25,21 @@ export const englishMessages = {
     signInPendingLabel: "Sign in, available in the next phase",
   },
   games: {
+    paint: {
+      area: "area",
+      chooseColour: "Choose a colour",
+      chooseTarget: "Choose where it goes",
+      colour: "Colour",
+      complete: "All targets complete",
+      correctColour: "Colour selected. Choose where it goes.",
+      heading: "Paint the picture",
+      incorrect: "That was not the requested choice. Try again.",
+      next: "Target complete. Listen for the next prompt.",
+      replay: "Replay prompt",
+      target: "Target",
+      visualNotice:
+        "The colour exercise depends on seeing the picture; neutral control names do not describe its colours or provide complete nonvisual access.",
+    },
     audioFailure: "Audio could not continue. Resume audio or exit this play.",
     backToMap: "Back to game map",
     backToVideo: "Back to video",

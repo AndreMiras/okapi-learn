@@ -107,7 +107,7 @@ function standaloneContext(aliases: { game: string; learner: string }) {
   } as RouteContext<"/api/learn/[learnerAlias]/games/[gameAlias]/package">;
 }
 
-function successfulFetch() {
+function successfulFetch(contentType = "application/zip") {
   return vi.fn(async (url: URL | string) => {
     if (String(url).startsWith("https://api.kidsandus.es/")) {
       return new Response(null, {
@@ -118,7 +118,7 @@ function successfulFetch() {
     return new Response(packageBytes, {
       headers: {
         "Content-Length": String(packageBytes.byteLength),
-        "Content-Type": "application/zip",
+        "Content-Type": contentType,
       },
     });
   });
@@ -332,7 +332,7 @@ describe("game package Route Handler", () => {
       game: mapOnly.alias,
       learner: fixture.learner.alias,
     };
-    const fetchMock = successfulFetch();
+    const fetchMock = successfulFetch("application/x-zip-compressed");
     vi.stubGlobal("fetch", fetchMock);
 
     const response = await standalonePOST(

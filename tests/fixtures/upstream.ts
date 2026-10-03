@@ -428,7 +428,7 @@ export async function startSyntheticUpstream(
         [FICTIONAL_GAME_IDS[0], "mixed"],
         [FICTIONAL_GAME_IDS[1], "unsupported"],
         [FICTIONAL_GAME_IDS[2], "retry-malformed"],
-        [FICTIONAL_MAP_GAME_IDS[1], "mixed"],
+        [FICTIONAL_MAP_GAME_IDS[1], "paint-mixed"],
         [FICTIONAL_MAP_GAME_IDS[2], "unsupported"],
       ]).get(gameId);
       const accepted =

@@ -56,6 +56,7 @@ export function createPng(
   width = 8,
   height = 6,
   rgba: readonly [number, number, number, number] = [51, 102, 153, 255],
+  rectangle?: Readonly<{ x1: number; x2: number; y1: number; y2: number }>,
 ): Uint8Array<ArrayBuffer> {
   const header = new Uint8Array(13);
   const headerView = new DataView(header.buffer);
@@ -69,7 +70,14 @@ export function createPng(
     scanlines[rowStart] = 0;
     for (let column = 0; column < width; column += 1) {
       const pixel = rowStart + 1 + column * 4;
-      scanlines.set(rgba, pixel);
+      if (
+        !rectangle ||
+        (column >= rectangle.x1 &&
+          column < rectangle.x2 &&
+          row >= rectangle.y1 &&
+          row < rectangle.y2)
+      )
+        scanlines.set(rgba, pixel);
     }
   }
   const compressed = new Uint8Array(deflateSync(scanlines));
@@ -84,20 +92,24 @@ export function createPng(
 export function createIndexedPng(
   width = 8,
   height = 6,
+  bitDepth: 1 | 4 = 1,
 ): Uint8Array<ArrayBuffer> {
   const header = new Uint8Array(13);
   const headerView = new DataView(header.buffer);
   headerView.setUint32(0, width);
   headerView.setUint32(4, height);
-  header[8] = 1;
+  header[8] = bitDepth;
   header[9] = 3;
-  const rowBytes = Math.ceil(width / 8);
+  const rowBytes = Math.ceil((width * bitDepth) / 8);
   const scanlines = new Uint8Array(height * (1 + rowBytes));
   for (let row = 0; row < height; row += 1) {
     const rowStart = row * (1 + rowBytes);
     scanlines[rowStart] = 0;
     for (let column = 0; column < width; column += 1) {
-      if ((row + column) % 2 === 0) {
+      if (bitDepth === 4 && (row + column) % 2 === 0) {
+        scanlines[rowStart + 1 + Math.floor(column / 2)]! |=
+          column % 2 === 0 ? 0x10 : 0x01;
+      } else if (bitDepth === 1 && (row + column) % 2 === 0) {
         scanlines[rowStart + 1 + Math.floor(column / 8)]! |=
           1 << (7 - (column % 8));
       }
@@ -293,6 +305,100 @@ export function createFictionalGameEntries(
     { bytes: FICTIONAL_MP3, name: "audio/prompt.mp3" },
     { bytes: FICTIONAL_M4A, name: "audio/transition.m4a" },
   ];
+}
+
+export function createPaintFictionalDescriptors(): Record<string, unknown> {
+  const descriptors = createMixedNameFictionalDescriptors();
+  const root = descriptors["game.json"] as { dynamics: unknown[] };
+  root.dynamics.push({
+    id: "paint",
+    json: "dynamics/paint.json",
+    type: "PAINT",
+  });
+  descriptors["dynamics/paint.json"] = {
+    ...common("paint", "Fictional colour puzzle"),
+    backgroundImage: "images/paint-background.png",
+    initialSound: ["audio/transition.m4a"],
+    errorSound: ["audio/prompt.mp3"],
+    okSound: ["audio/transition.m4a"],
+    finalSound: ["audio/transition.m4a"],
+    colours: [
+      {
+        ...element("palette-a", "", ""),
+        image: null,
+        frames: [
+          { x1: 20, x2: 100, y1: 20, y2: 80 },
+          { x1: 20, x2: 100, y1: 90, y2: 130 },
+        ],
+      },
+      {
+        ...element("palette-b", "", ""),
+        image: "",
+        frames: [{ x1: 200, x2: 280, y1: 20, y2: 80 }],
+      },
+    ],
+    elements: [
+      {
+        ...element("spot-a", "", "images/paint-overlay-a.png", true),
+        colour: "PALETTE-A",
+        okSound: ["audio/transition.m4a"],
+        frames: [{ x1: 20, x2: 100, y1: 155, y2: 215 }],
+      },
+      {
+        ...element("spot-b", "", "images/paint-overlay-b.png", true),
+        colour: "palette-b",
+        errorSound: ["audio/prompt.mp3"],
+        frames: [{ x1: 200, x2: 280, y1: 155, y2: 215 }],
+      },
+    ],
+  };
+  return descriptors;
+}
+
+export function createNumericPaintFictionalDescriptors(): Record<
+  string,
+  unknown
+> {
+  const descriptors = createPaintFictionalDescriptors() as Record<string, any>;
+  const paint = descriptors["dynamics/paint.json"];
+  paint.colours.forEach((colour: Record<string, unknown>, index: number) => {
+    delete colour.Id;
+    delete colour.image;
+    delete colour.initialSound;
+    delete colour.okSound;
+    delete colour.errorSound;
+    colour.id = index + 1;
+  });
+  paint.elements.forEach((element: Record<string, unknown>, index: number) => {
+    element.colour = index + 1;
+  });
+  return descriptors;
+}
+
+export function createPaintFictionalGameEntries(
+  descriptors: Record<string, unknown> = createPaintFictionalDescriptors(),
+): GameZipEntry[] {
+  return [
+    ...createFictionalGameEntries(descriptors),
+    ...["background", "overlay-a", "overlay-b"].map((name, index) => ({
+      bytes:
+        index === 2
+          ? createIndexedPng(320, 240, 4)
+          : createPng(
+              320,
+              240,
+              [80 + index * 42, 120 + index * 33, 165, 255],
+              index === 0 ? undefined : { x1: 20, x2: 100, y1: 155, y2: 215 },
+            ),
+      name: `images/paint-${name}.png`,
+    })),
+  ];
+}
+
+export async function createPaintFictionalGameZip(): Promise<ArrayBuffer> {
+  return createGameZip(
+    createPaintFictionalGameEntries(createNumericPaintFictionalDescriptors()),
+  );
 }
 
 export async function createGameZip(

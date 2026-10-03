@@ -11,6 +11,7 @@ const gameExpiryOrigin = "http://localhost:3105";
 
 async function installGameHarness(page: Page) {
   await page.addInitScript(() => {
+    Math.random = () => 0.99;
     class ImmediateAudio {
       onended: (() => void) | null = null;
       onerror: (() => void) | null = null;
@@ -92,6 +93,47 @@ async function expectNoGamePersistence(page: Page) {
     serviceWorker: undefined,
     session: 0,
   });
+}
+
+async function completePaint(page: Page, testInfo: TestInfo) {
+  await expect(
+    page.getByRole("heading", { name: "Paint the picture" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/neutral control names do not describe/),
+  ).toBeVisible();
+  await expectNoSeriousA11yIssues(page);
+  const activate = async (name: string) => {
+    const button = page.getByRole("button", { name, exact: true });
+    await expect(button).toBeEnabled();
+    if (testInfo.project.use.isMobile) await button.tap();
+    else await button.click();
+  };
+  await activate("Colour 2");
+  await expect(page.getByText(/not the requested choice/)).toBeVisible();
+  await expectNoSeriousA11yIssues(page);
+  const correctColour = page.getByRole("button", { name: "Colour 1, area 1" });
+  await correctColour.focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByText("Choose where it goes", { exact: true }),
+  ).toBeVisible();
+  await expectNoSeriousA11yIssues(page);
+  await activate("Target 2");
+  await expect(page.getByText(/not the requested choice/)).toBeVisible();
+  const correctTarget = page.getByRole("button", { name: "Target 1" });
+  await correctTarget.focus();
+  await page.keyboard.press("Space");
+  await expect(page.getByText("1 of 2 complete")).toBeVisible();
+  await expectNoSeriousA11yIssues(page);
+  await activate("Replay prompt");
+  await activate("Colour 2");
+  await activate("Target 1"); // The first target is already solved; this button now represents the remaining target.
+  await expect(
+    page.getByRole("heading", { name: "Play complete" }),
+  ).toBeVisible();
+  await expect(page.getByRole("status").first()).toContainText("2 errors");
+  await expectNoSeriousA11yIssues(page);
 }
 
 async function expectSuccessfulDelivery(
@@ -370,6 +412,7 @@ test("completes a standalone game, unlocks the next marker, and resets on reload
   if (testInfo.project.use.isMobile) await star.tap();
   else await star.click();
   await page.getByRole("button", { name: "Continue" }).click();
+  await completePaint(page, testInfo);
   await expect(
     page.getByRole("heading", { name: "Play complete" }),
   ).toBeVisible();

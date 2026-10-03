@@ -51,6 +51,10 @@
     width: var(--game-hotspot-width);
   }
 
+  .game-hotspot:focus-visible {
+    z-index: 2;
+  }
+
   [style*="--game-aspect"] {
     aspect-ratio: var(--game-aspect);
   }
@@ -90,8 +94,7 @@
 
   .game-map-sections {
     display: flex;
-    flex-direction: column;
-    gap: 1rem;
+    flex-direction: column-reverse;
     overflow: visible;
   }
 
@@ -110,8 +113,6 @@
 
   .game-map-artwork {
     overflow: hidden;
-    border: 2px solid #16324f;
-    border-radius: clamp(0.75rem, 3vw, 1.5rem);
     background: #e8f0e5;
   }
 

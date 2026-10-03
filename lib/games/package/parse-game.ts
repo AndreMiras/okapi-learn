@@ -11,6 +11,7 @@ import {
 } from "./parse-common";
 import { parseExplore } from "./parse-explore";
 import { parseListen } from "./parse-listen";
+import { parsePaint } from "./parse-paint";
 import { parseWildcard } from "./parse-wildcard";
 import type {
   GamePackage,
@@ -40,7 +41,12 @@ function descriptorPath(files: ArchiveFiles, value: unknown): string {
 }
 
 function dynamicType(value: unknown): SupportedDynamicType {
-  if (value !== "LISTEN" && value !== "EXPLORE" && value !== "WILDCARD") {
+  if (
+    value !== "LISTEN" &&
+    value !== "EXPLORE" &&
+    value !== "PAINT" &&
+    value !== "WILDCARD"
+  ) {
     packageFailure();
   }
   return value;
@@ -73,7 +79,9 @@ export function parseGamePackage(
         ? parseListen(context, descriptor)
         : type === "EXPLORE"
           ? parseExplore(context, descriptor)
-          : parseWildcard(context, descriptor);
+          : type === "PAINT"
+            ? parsePaint(context, descriptor)
+            : parseWildcard(context, descriptor);
     if (dynamic.id !== id) packageFailure();
     return dynamic;
   });

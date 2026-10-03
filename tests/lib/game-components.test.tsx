@@ -20,6 +20,7 @@ import { GameAudioController } from "@/components/games/game-audio";
 import { GameRunner } from "@/components/games/game-runner";
 import { GameStatus } from "@/components/games/game-status";
 import { ListenActivity } from "@/components/games/listen-activity";
+import { PaintActivity } from "@/components/games/paint-activity";
 import { WildcardActivity } from "@/components/games/wildcard-activity";
 import {
   LearnerActivityProvider,
@@ -35,6 +36,7 @@ import type {
   DynamicElement,
   ExploreDynamic,
   ListenDynamic,
+  PaintDynamic,
   WildcardDynamic,
 } from "@/lib/games/package/types";
 import type { RunnerState } from "@/lib/games/runtime/state";
@@ -210,6 +212,115 @@ afterEach(() => {
 });
 
 describe("activity renderers", () => {
+  it("shuffles PAINT once, handles both wrong steps, and restores focus after each feedback", async () => {
+    const callbacks = controls();
+    const sound = audio();
+    const dynamic: PaintDynamic = {
+      ...common,
+      backgroundHeight: 6,
+      backgroundImage: "background.png",
+      backgroundWidth: 8,
+      colours: [
+        { ...element("colour-a", null), image: null },
+        { ...element("colour-b", null), image: null },
+      ],
+      elements: [
+        { ...element("target-a", "Ignored"), colourId: "COLOUR-A" },
+        { ...element("target-b", null), colourId: "colour-b" },
+      ],
+      id: "paint",
+      type: "PAINT",
+    };
+    const renderPhase = (
+      phase: "prompt" | "accepting-input" | "feedback",
+      outcome?: "incorrect" | "continue" | "complete",
+      generationId = 1,
+    ) => (
+      <PaintActivity
+        {...callbacks}
+        assets={assets}
+        audio={sound}
+        dynamic={dynamic}
+        feedbackOutcome={outcome}
+        generationId={generationId}
+        phase={phase}
+        random={() => 0.99}
+      />
+    );
+    const view = render(renderPhase("prompt"));
+    await waitFor(() =>
+      expect(callbacks.onPromptFinished).toHaveBeenCalledOnce(),
+    );
+    view.rerender(renderPhase("accepting-input"));
+    const heading = screen.getByRole("heading", { name: "Paint the picture" });
+    expect(heading).toBe(document.activeElement);
+    expect(screen.getByRole("button", { name: "Colour 1" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Colour 2" })).toBeTruthy();
+    expect(document.body.textContent).not.toContain("Ignored");
+    fireEvent.click(screen.getByRole("button", { name: "Colour 2" }));
+    expect(callbacks.onIncorrect).toHaveBeenCalledOnce();
+    view.rerender(renderPhase("feedback", "incorrect"));
+    expect(screen.getByRole("button", { name: "Colour 1" })).toHaveProperty(
+      "disabled",
+      true,
+    );
+    await waitFor(() =>
+      expect(callbacks.onFeedbackFinished).toHaveBeenCalledTimes(1),
+    );
+    view.rerender(renderPhase("accepting-input"));
+    expect(screen.getByText(/not the requested choice/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Colour 1" }));
+    expect(callbacks.onCorrect).toHaveBeenCalledWith(false);
+    view.rerender(renderPhase("feedback", "continue"));
+    await waitFor(() =>
+      expect(callbacks.onFeedbackFinished).toHaveBeenCalledTimes(2),
+    );
+    view.rerender(renderPhase("accepting-input"));
+    expect(heading).toBe(document.activeElement);
+    expect(screen.getByRole("button", { name: "Target 1" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Target 2" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Target 2" }));
+    expect(callbacks.onIncorrect).toHaveBeenCalledTimes(2);
+    view.rerender(renderPhase("feedback", "incorrect"));
+    await waitFor(() =>
+      expect(callbacks.onFeedbackFinished).toHaveBeenCalledTimes(3),
+    );
+    view.rerender(renderPhase("accepting-input"));
+    fireEvent.click(screen.getByRole("button", { name: "Target 1" }));
+    expect(callbacks.onCorrect).toHaveBeenCalledWith(true);
+    view.rerender(renderPhase("feedback", "continue"));
+    await waitFor(() =>
+      expect(callbacks.onFeedbackFinished).toHaveBeenCalledTimes(4),
+    );
+    view.rerender(renderPhase("prompt", undefined, 2));
+    await waitFor(() =>
+      expect(callbacks.onPromptFinished).toHaveBeenCalledTimes(2),
+    );
+    view.rerender(renderPhase("accepting-input", undefined, 2));
+    expect(screen.getByText("1 of 2 complete")).toBeTruthy();
+    expect(
+      view.container.querySelector('img[src="blob:target-a.png"]'),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Replay prompt" }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Replay prompt" }),
+      ).toHaveProperty("disabled", false),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Colour 2" }));
+    view.rerender(renderPhase("feedback", "continue", 2));
+    await waitFor(() =>
+      expect(callbacks.onFeedbackFinished).toHaveBeenCalledTimes(5),
+    );
+    view.rerender(renderPhase("accepting-input", undefined, 2));
+    fireEvent.click(screen.getByRole("button", { name: "Target 1" }));
+    expect(callbacks.onComplete).toHaveBeenCalledOnce();
+    view.rerender(renderPhase("feedback", "complete", 2));
+    await waitFor(() =>
+      expect(callbacks.onFeedbackFinished).toHaveBeenCalledTimes(6),
+    );
+    expect(screen.getByText("2 of 2 complete")).toBeTruthy();
+  });
   it("runs LISTEN wrong, retry, and multi-target completion with named buttons", async () => {
     const callbacks = controls();
     const dynamic: ListenDynamic = {

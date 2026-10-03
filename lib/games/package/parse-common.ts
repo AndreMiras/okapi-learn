@@ -1,7 +1,12 @@
 import type { ArchiveFiles } from "./archive";
 import { packageFailure } from "./errors";
 import { MAX_AUDIO_REFERENCES, MAX_ELEMENTS, MAX_FRAMES } from "./limits";
-import type { DynamicCommon, DynamicElement, Frame } from "./types";
+import type {
+  DynamicCommon,
+  DynamicElement,
+  Frame,
+  PaintColour,
+} from "./types";
 import type { ImageDimensions } from "./assets";
 
 const CONTROLS = /[\u0000-\u001f\u007f]/u;
@@ -34,7 +39,7 @@ export function boundedString(value: unknown, maximumLength: number): string {
   return normalized;
 }
 
-function optionalElementLabel(value: unknown): string | null {
+export function optionalElementLabel(value: unknown): string | null {
   if (typeof value !== "string" || value.length > 200 || CONTROLS.test(value)) {
     return null;
   }
@@ -187,13 +192,11 @@ export function parseCommon(
   });
 }
 
-export function parseElement(
-  context: ParseContext,
+export function parseFrames(
   value: unknown,
   framesRequired: boolean,
-): DynamicElement {
-  const source = record(value);
-  const framesValue = source.frames;
+): readonly Frame[] {
+  const framesValue = value;
   const frames =
     framesValue === null || framesValue === undefined
       ? []
@@ -209,9 +212,18 @@ export function parseElement(
           },
         );
   if (framesRequired && !frames.length) packageFailure();
+  return Object.freeze(frames);
+}
+
+export function parseElement(
+  context: ParseContext,
+  value: unknown,
+  framesRequired: boolean,
+): DynamicElement {
+  const source = record(value);
   return Object.freeze({
     errorSound: audioReferences(context, source.errorSound),
-    frames: Object.freeze(frames),
+    frames: parseFrames(source.frames, framesRequired),
     id: boundedString(source.Id, 256),
     image: imageReference(context, source.image),
     initialSound: audioReferences(context, source.initialSound),
@@ -220,7 +232,26 @@ export function parseElement(
   });
 }
 
-export function uniqueElements(elements: readonly DynamicElement[]): void {
+export function validateFramesWithinBackground(
+  elements: readonly (DynamicElement | PaintColour)[],
+  dimensions: ImageDimensions,
+): void {
+  for (const element of elements) {
+    for (const frame of element.frames) {
+      if (
+        frame.x1 >= frame.x2 ||
+        frame.y1 >= frame.y2 ||
+        frame.x2 > dimensions.width ||
+        frame.y2 > dimensions.height
+      )
+        packageFailure();
+    }
+  }
+}
+
+export function uniqueElements(
+  elements: readonly Readonly<{ id: string }>[],
+): void {
   if (elements.length > MAX_ELEMENTS) packageFailure();
   const ids = new Set<string>();
   for (const element of elements) {

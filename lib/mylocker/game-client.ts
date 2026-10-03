@@ -9,6 +9,7 @@ const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const PACKAGE_CONTENT_TYPES = new Set([
   "application/octet-stream",
   "application/zip",
+  "application/x-zip-compressed",
 ]);
 
 export type GamePackageErrorCategory =

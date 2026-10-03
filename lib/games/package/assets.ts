@@ -43,7 +43,7 @@ function pngDimensions(bytes: Uint8Array): ImageDimensions {
       if (
         !(
           (bitDepth === 8 && [0, 2, 3, 4, 6].includes(colorType!)) ||
-          (bitDepth === 1 && colorType === 3)
+          ([1, 4].includes(bitDepth!) && colorType === 3)
         ) ||
         bytes[offset + 18] !== 0 ||
         bytes[offset + 19] !== 0 ||
