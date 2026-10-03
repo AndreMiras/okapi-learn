@@ -341,7 +341,7 @@ export function createPaintFictionalDescriptors(): Record<string, unknown> {
       {
         ...element("spot-a", "", "images/paint-overlay-a.png", true),
         colour: "PALETTE-A",
-        okSound: ["audio/transition.m4a"],
+        okSound: ["audio/prompt.mp3"],
         frames: [{ x1: 20, x2: 100, y1: 155, y2: 215 }],
       },
       {

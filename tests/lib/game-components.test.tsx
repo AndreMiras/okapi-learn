@@ -215,18 +215,33 @@ describe("activity renderers", () => {
   it("shuffles PAINT once, handles both wrong steps, and restores focus after each feedback", async () => {
     const callbacks = controls();
     const sound = audio();
+    const playback = vi.spyOn(sound, "play");
     const dynamic: PaintDynamic = {
       ...common,
       backgroundHeight: 6,
       backgroundImage: "background.png",
       backgroundWidth: 8,
+      errorSound: ["colour-error.mp3"],
+      finalSound: ["colour-success.mp3", "closing.mp3"],
+      initialSound: ["intro.mp3"],
+      okSound: ["colour-success.mp3"],
       colours: [
         { ...element("colour-a", null), image: null },
         { ...element("colour-b", null), image: null },
       ],
       elements: [
-        { ...element("target-a", "Ignored"), colourId: "COLOUR-A" },
-        { ...element("target-b", null), colourId: "colour-b" },
+        {
+          ...element("target-a", "Ignored"),
+          colourId: "COLOUR-A",
+          errorSound: ["target-error.mp3"],
+          initialSound: ["first.mp3"],
+          okSound: ["target-success.mp3"],
+        },
+        {
+          ...element("target-b", null),
+          colourId: "colour-b",
+          initialSound: ["second.mp3"],
+        },
       ],
       id: "paint",
       type: "PAINT",
@@ -251,6 +266,11 @@ describe("activity renderers", () => {
     await waitFor(() =>
       expect(callbacks.onPromptFinished).toHaveBeenCalledOnce(),
     );
+    expect(playback).toHaveBeenLastCalledWith([
+      "blob:intro.mp3",
+      "blob:first.mp3",
+    ]);
+    playback.mockClear();
     view.rerender(renderPhase("accepting-input"));
     const heading = screen.getByRole("heading", { name: "Paint the picture" });
     expect(heading).toBe(document.activeElement);
@@ -267,6 +287,7 @@ describe("activity renderers", () => {
     await waitFor(() =>
       expect(callbacks.onFeedbackFinished).toHaveBeenCalledTimes(1),
     );
+    expect(playback).toHaveBeenLastCalledWith(["blob:colour-error.mp3"]);
     view.rerender(renderPhase("accepting-input"));
     expect(screen.getByText(/not the requested choice/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Colour 1" }));
@@ -275,6 +296,7 @@ describe("activity renderers", () => {
     await waitFor(() =>
       expect(callbacks.onFeedbackFinished).toHaveBeenCalledTimes(2),
     );
+    expect(playback).toHaveBeenLastCalledWith(["blob:colour-success.mp3"]);
     view.rerender(renderPhase("accepting-input"));
     expect(heading).toBe(document.activeElement);
     expect(screen.getByRole("button", { name: "Target 1" })).toBeTruthy();
@@ -285,6 +307,7 @@ describe("activity renderers", () => {
     await waitFor(() =>
       expect(callbacks.onFeedbackFinished).toHaveBeenCalledTimes(3),
     );
+    expect(playback).toHaveBeenLastCalledWith(["blob:target-error.mp3"]);
     view.rerender(renderPhase("accepting-input"));
     fireEvent.click(screen.getByRole("button", { name: "Target 1" }));
     expect(callbacks.onCorrect).toHaveBeenCalledWith(true);
@@ -292,10 +315,12 @@ describe("activity renderers", () => {
     await waitFor(() =>
       expect(callbacks.onFeedbackFinished).toHaveBeenCalledTimes(4),
     );
+    expect(playback).toHaveBeenLastCalledWith(["blob:target-success.mp3"]);
     view.rerender(renderPhase("prompt", undefined, 2));
     await waitFor(() =>
       expect(callbacks.onPromptFinished).toHaveBeenCalledTimes(2),
     );
+    expect(playback).toHaveBeenLastCalledWith(["blob:second.mp3"]);
     view.rerender(renderPhase("accepting-input", undefined, 2));
     expect(screen.getByText("1 of 2 complete")).toBeTruthy();
     expect(
@@ -319,6 +344,10 @@ describe("activity renderers", () => {
     await waitFor(() =>
       expect(callbacks.onFeedbackFinished).toHaveBeenCalledTimes(6),
     );
+    expect(playback).toHaveBeenLastCalledWith([
+      "blob:colour-success.mp3",
+      "blob:closing.mp3",
+    ]);
     expect(screen.getByText("2 of 2 complete")).toBeTruthy();
   });
   it("runs LISTEN wrong, retry, and multi-target completion with named buttons", async () => {

@@ -12,6 +12,10 @@ const gameExpiryOrigin = "http://localhost:3105";
 async function installGameHarness(page: Page) {
   await page.addInitScript(() => {
     Math.random = () => 0.99;
+    Object.defineProperty(window, "__gameAudioStarts", {
+      value: 0,
+      writable: true,
+    });
     class ImmediateAudio {
       onended: (() => void) | null = null;
       onerror: (() => void) | null = null;
@@ -20,6 +24,9 @@ async function installGameHarness(page: Page) {
       load() {}
       pause() {}
       play() {
+        (
+          window as typeof window & { __gameAudioStarts: number }
+        ).__gameAudioStarts += 1;
         queueMicrotask(() => this.onended?.());
         return Promise.resolve();
       }
@@ -96,6 +103,12 @@ async function expectNoGamePersistence(page: Page) {
 }
 
 async function completePaint(page: Page, testInfo: TestInfo) {
+  const playCount = () =>
+    page.evaluate(
+      () =>
+        (window as typeof window & { __gameAudioStarts: number })
+          .__gameAudioStarts,
+    );
   await expect(
     page.getByRole("heading", { name: "Paint the picture" }),
   ).toBeVisible();
@@ -114,24 +127,30 @@ async function completePaint(page: Page, testInfo: TestInfo) {
   await expectNoSeriousA11yIssues(page);
   const correctColour = page.getByRole("button", { name: "Colour 1, area 1" });
   await correctColour.focus();
+  const beforeColour = await playCount();
   await page.keyboard.press("Enter");
   await expect(
     page.getByText("Choose where it goes", { exact: true }),
   ).toBeVisible();
+  expect(await playCount()).toBe(beforeColour + 1);
   await expectNoSeriousA11yIssues(page);
   await activate("Target 2");
   await expect(page.getByText(/not the requested choice/)).toBeVisible();
   const correctTarget = page.getByRole("button", { name: "Target 1" });
   await correctTarget.focus();
+  const beforeTarget = await playCount();
   await page.keyboard.press("Space");
   await expect(page.getByText("1 of 2 complete")).toBeVisible();
+  await expect.poll(playCount).toBe(beforeTarget + 2); // Feedback, then the next target prompt.
   await expectNoSeriousA11yIssues(page);
   await activate("Replay prompt");
   await activate("Colour 2");
+  const beforeFinalTarget = await playCount();
   await activate("Target 1"); // The first target is already solved; this button now represents the remaining target.
   await expect(
     page.getByRole("heading", { name: "Play complete" }),
   ).toBeVisible();
+  expect(await playCount()).toBe(beforeFinalTarget + 1);
   await expect(page.getByRole("status").first()).toContainText("2 errors");
   await expectNoSeriousA11yIssues(page);
 }

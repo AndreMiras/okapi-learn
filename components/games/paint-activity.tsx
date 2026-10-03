@@ -14,6 +14,21 @@ import { GameAudioError } from "./game-audio";
 type PaintActivityProps = ActivityProps &
   Readonly<{ dynamic: PaintDynamic; random?: RandomSource }>;
 
+function stepFeedbackSounds(
+  step: "colour" | "target",
+  dynamicSounds: readonly string[],
+  targetSounds: readonly string[],
+): readonly string[] {
+  // Each tap receives one level's feedback. The other level is a fallback,
+  // not another song to queue for the same selection.
+  const preferred = step === "colour" ? dynamicSounds : targetSounds;
+  return preferred.length
+    ? preferred
+    : step === "colour"
+      ? targetSounds
+      : dynamicSounds;
+}
+
 export function PaintActivity({
   assets,
   audio,
@@ -45,7 +60,7 @@ export function PaintActivity({
     let active = true;
     void audio
       .playPrompt(
-        assetUrls(assets, dynamic.initialSound),
+        targetIndex === 0 ? assetUrls(assets, dynamic.initialSound) : [],
         assetUrls(assets, target.initialSound),
       )
       .then(() => active && onPromptFinished())
@@ -69,6 +84,7 @@ export function PaintActivity({
     onPromptFinished,
     phase,
     target,
+    targetIndex,
   ]);
 
   useEffect(() => {
@@ -84,13 +100,19 @@ export function PaintActivity({
     feedbackStarted.current = true;
     const correct = feedbackOutcome !== "incorrect";
     const finishedTarget = correct && step === "target";
+    const successSounds = stepFeedbackSounds(
+      step,
+      dynamic.okSound,
+      target.okSound,
+    );
     const paths = correct
       ? [
-          ...target.okSound,
-          ...dynamic.okSound,
-          ...(feedbackOutcome === "complete" ? dynamic.finalSound : []),
+          ...successSounds,
+          ...(feedbackOutcome === "complete"
+            ? dynamic.finalSound.filter((path) => !successSounds.includes(path))
+            : []),
         ]
-      : [...target.errorSound, ...dynamic.errorSound];
+      : stepFeedbackSounds(step, dynamic.errorSound, target.errorSound);
     let active = true;
     void audio
       .play(assetUrls(assets, paths))
