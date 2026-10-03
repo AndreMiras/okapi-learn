@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const config = vi.hoisted(() => ({
   allowedAudioOrigins: [] as string[],
+  allowedGameArtworkOrigins: ["https://artwork.example"],
   allowedGameOrigins: ["https://packages.example"],
   allowedVideoOrigins: [] as string[],
   apiBaseUrl: "https://api.kidsandus.es",
@@ -15,7 +16,8 @@ const config = vi.hoisted(() => ({
 
 vi.mock("@/lib/config/server", () => ({ getServerConfig: () => config }));
 
-import { POST } from "@/app/api/learn/[learnerAlias]/media/[mediaAlias]/games/[gameAlias]/package/route";
+import { POST as standalonePOST } from "@/app/api/learn/[learnerAlias]/games/[gameAlias]/package/route";
+import { POST as videoPOST } from "@/app/api/learn/[learnerAlias]/media/[mediaAlias]/games/[gameAlias]/package/route";
 import { normalizeAuthenticationResponse } from "@/lib/mylocker/normalize";
 import { GameRateLimiter } from "@/lib/security/game-rate-limit";
 import { MemorySessionStore, SESSION_COOKIE_NAME } from "@/lib/session/store";
@@ -38,7 +40,10 @@ function issueSession(seed = 0) {
   const learner = session.learners[0]!;
   const video = session.courses[0]!.videos[0]!;
   const game = video.games[0]!;
-  return { game, issued, learner, session, store, video };
+  const mapGames = session.courses[0]!.gameMap!.sections.flatMap(
+    ({ positions }) => positions.map(({ game }) => game),
+  );
+  return { game, issued, learner, mapGames, session, store, video };
 }
 
 function request(
@@ -70,6 +75,36 @@ function context(aliases: { game: string; learner: string; media: string }) {
       mediaAlias: aliases.media,
     }),
   } as RouteContext<"/api/learn/[learnerAlias]/media/[mediaAlias]/games/[gameAlias]/package">;
+}
+
+function standaloneRequest(
+  aliases: { game: string; learner: string },
+  cookieValue?: string,
+  options: { body?: BodyInit; origin?: string } = {},
+) {
+  const url = `http://localhost:3000/api/learn/${aliases.learner}/games/${aliases.game}/package`;
+  const headers = new Headers({
+    Host: "localhost:3000",
+    Origin: options.origin ?? "http://localhost:3000",
+  });
+  if (cookieValue) {
+    headers.set("Cookie", `${SESSION_COOKIE_NAME}=${cookieValue}`);
+  }
+  return new Request(url, {
+    body: options.body,
+    duplex: "half",
+    headers,
+    method: "POST",
+  } as RequestInit);
+}
+
+function standaloneContext(aliases: { game: string; learner: string }) {
+  return {
+    params: Promise.resolve({
+      gameAlias: aliases.game,
+      learnerAlias: aliases.learner,
+    }),
+  } as RouteContext<"/api/learn/[learnerAlias]/games/[gameAlias]/package">;
 }
 
 function successfulFetch() {
@@ -108,7 +143,7 @@ describe("game package Route Handler", () => {
     const fetchMock = successfulFetch();
     vi.stubGlobal("fetch", fetchMock);
 
-    const response = await POST(
+    const response = await videoPOST(
       request(aliases, fixture.issued.cookieValue, {
         body: new ReadableStream<Uint8Array>({
           start(controller) {
@@ -166,7 +201,7 @@ describe("game package Route Handler", () => {
       ],
     ] as const;
     for (const [incoming, routeContext] of invalidCases) {
-      const response = await POST(incoming, routeContext);
+      const response = await videoPOST(incoming, routeContext);
       expect(response.ok).toBe(false);
       expect(response.headers.get("cache-control")).toBe("private, no-store");
       expect(response.headers.get("pragma")).toBe("no-cache");
@@ -175,7 +210,7 @@ describe("game package Route Handler", () => {
     config.gamePlaybackEnabled = false;
     expect(
       (
-        await POST(
+        await videoPOST(
           request(aliases, fixture.issued.cookieValue),
           context(aliases),
         )
@@ -194,7 +229,7 @@ describe("game package Route Handler", () => {
       learner: first.learner.alias,
       media: first.video.alias,
     };
-    const response = await POST(
+    const response = await videoPOST(
       request(aliases, first.issued.cookieValue),
       context(aliases),
     );
@@ -218,14 +253,14 @@ describe("game package Route Handler", () => {
     for (let index = 0; index < 6; index += 1) {
       expect(
         (
-          await POST(
+          await videoPOST(
             request(aliases, fixture.issued.cookieValue),
             context(aliases),
           )
         ).status,
       ).toBe(200);
     }
-    const limited = await POST(
+    const limited = await videoPOST(
       request(aliases, fixture.issued.cookieValue),
       context(aliases),
     );
@@ -280,12 +315,172 @@ describe("game package Route Handler", () => {
       "fetch",
       vi.fn(async () => new Response(null, { status: 500 })),
     );
-    const response = await POST(
+    const response = await videoPOST(
       request(aliases, fixture.issued.cookieValue),
       context(aliases),
     );
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: "service_unavailable" });
     expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
+
+  it("delivers standalone packages only through the exact map relationship", async () => {
+    const fixture = issueSession();
+    globalThis.__okapiLearnSessionStore = fixture.store;
+    const mapOnly = fixture.mapGames[1]!;
+    const aliases = {
+      game: mapOnly.alias,
+      learner: fixture.learner.alias,
+    };
+    const fetchMock = successfulFetch();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await standalonePOST(
+      standaloneRequest(aliases, fixture.issued.cookieValue),
+      standaloneContext(aliases),
+    );
+
+    expect(response.status).toBe(200);
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(packageBytes);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("content-type")).toBe("application/zip");
+    expect(String(fetchMock.mock.calls[0]![0])).toContain(
+      encodeURIComponent(mapOnly.id),
+    );
+  });
+
+  it("keeps video-only and map-only authorization paths separate", async () => {
+    const fixture = issueSession();
+    globalThis.__okapiLearnSessionStore = fixture.store;
+    const fetchMock = successfulFetch();
+    vi.stubGlobal("fetch", fetchMock);
+    const videoOnly = fixture.video.games[1]!;
+    const mapOnly = fixture.mapGames[1]!;
+
+    const standaloneAliases = {
+      game: videoOnly.alias,
+      learner: fixture.learner.alias,
+    };
+    expect(
+      (
+        await standalonePOST(
+          standaloneRequest(standaloneAliases, fixture.issued.cookieValue),
+          standaloneContext(standaloneAliases),
+        )
+      ).status,
+    ).toBe(404);
+
+    const videoAliases = {
+      game: mapOnly.alias,
+      learner: fixture.learner.alias,
+      media: fixture.video.alias,
+    };
+    expect(
+      (
+        await videoPOST(
+          request(videoAliases, fixture.issued.cookieValue),
+          context(videoAliases),
+        )
+      ).status,
+    ).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("allows a dual-linked alias only when each route proves its relationship", async () => {
+    const fixture = issueSession();
+    globalThis.__okapiLearnSessionStore = fixture.store;
+    const fetchMock = successfulFetch();
+    vi.stubGlobal("fetch", fetchMock);
+    const dualLinked = fixture.mapGames[0]!;
+    expect(dualLinked.alias).toBe(fixture.game.alias);
+
+    const standaloneAliases = {
+      game: dualLinked.alias,
+      learner: fixture.learner.alias,
+    };
+    expect(
+      (
+        await standalonePOST(
+          standaloneRequest(standaloneAliases, fixture.issued.cookieValue),
+          standaloneContext(standaloneAliases),
+        )
+      ).status,
+    ).toBe(200);
+
+    const videoAliases = {
+      game: dualLinked.alias,
+      learner: fixture.learner.alias,
+      media: fixture.video.alias,
+    };
+    expect(
+      (
+        await videoPOST(
+          request(videoAliases, fixture.issued.cookieValue),
+          context(videoAliases),
+        )
+      ).status,
+    ).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it("rejects unsafe standalone requests before package retrieval", async () => {
+    const fixture = issueSession();
+    const other = issueSession(20);
+    globalThis.__okapiLearnSessionStore = fixture.store;
+    const game = fixture.mapGames[1]!;
+    const aliases = { game: game.alias, learner: fixture.learner.alias };
+    const fetchMock = successfulFetch();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const cases = [
+      [
+        standaloneRequest(aliases, fixture.issued.cookieValue, {
+          origin: "https://evil.example",
+        }),
+        standaloneContext(aliases),
+      ],
+      [standaloneRequest(aliases), standaloneContext(aliases)],
+      [
+        standaloneRequest(aliases, fixture.issued.cookieValue, { body: "x" }),
+        standaloneContext(aliases),
+      ],
+      [
+        standaloneRequest(
+          { ...aliases, game: game.id },
+          fixture.issued.cookieValue,
+        ),
+        standaloneContext({ ...aliases, game: game.id }),
+      ],
+      [
+        standaloneRequest(
+          { ...aliases, game: other.mapGames[1]!.alias },
+          fixture.issued.cookieValue,
+        ),
+        standaloneContext({ ...aliases, game: other.mapGames[1]!.alias }),
+      ],
+      [
+        standaloneRequest(
+          { ...aliases, learner: other.learner.alias },
+          fixture.issued.cookieValue,
+        ),
+        standaloneContext({ ...aliases, learner: other.learner.alias }),
+      ],
+    ] as const;
+
+    for (const [incoming, routeContext] of cases) {
+      const response = await standalonePOST(incoming, routeContext);
+      expect(response.ok).toBe(false);
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+    }
+    config.gamePlaybackEnabled = false;
+    expect(
+      (
+        await standalonePOST(
+          standaloneRequest(aliases, fixture.issued.cookieValue),
+          standaloneContext(aliases),
+        )
+      ).status,
+    ).toBe(503);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

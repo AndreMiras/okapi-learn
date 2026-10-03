@@ -3,6 +3,7 @@ export const DEFAULT_API_ORIGIN = "https://api.kidsandus.es";
 
 export type ServerConfig = Readonly<{
   allowedAudioOrigins: readonly string[];
+  allowedGameArtworkOrigins: readonly string[];
   allowedGameOrigins: readonly string[];
   allowedVideoOrigins: readonly string[];
   apiBaseUrl: string;
@@ -135,6 +136,11 @@ export function parseServerConfig(environment: Environment): ServerConfig {
     "ALLOWED_GAME_ORIGINS",
     production,
   );
+  const allowedGameArtworkOrigins = parseOrigins(
+    environment.ALLOWED_GAME_ARTWORK_ORIGINS,
+    "ALLOWED_GAME_ARTWORK_ORIGINS",
+    production,
+  );
   const videoPlaybackEnabled = parseBoolean(
     environment,
     "ENABLE_VIDEO_PLAYBACK",
@@ -154,10 +160,16 @@ export function parseServerConfig(environment: Environment): ServerConfig {
   if (gamePlaybackEnabled && allowedGameOrigins.length === 0) {
     throw new ConfigurationError("Game playback requires an allowed origin");
   }
+  if (gamePlaybackEnabled && allowedGameArtworkOrigins.length === 0) {
+    throw new ConfigurationError(
+      "Game playback requires an allowed artwork origin",
+    );
+  }
   const applicationHostname = new URL(publicAppOrigin).hostname;
   for (const origin of [
     ...allowedVideoOrigins,
     ...allowedAudioOrigins,
+    ...allowedGameArtworkOrigins,
     ...allowedGameOrigins,
   ]) {
     if (new URL(origin).hostname === applicationHostname) {
@@ -169,6 +181,7 @@ export function parseServerConfig(environment: Environment): ServerConfig {
 
   return Object.freeze({
     allowedAudioOrigins,
+    allowedGameArtworkOrigins,
     allowedGameOrigins,
     allowedVideoOrigins,
     apiBaseUrl,

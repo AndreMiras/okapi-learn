@@ -1,15 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
+import { useEffect } from "react";
 
+import { useLearnerActivityState } from "@/components/learner-activity-state";
 import { englishMessages } from "@/lib/i18n/messages/en";
 
 type SafeGameLink = Readonly<{
@@ -17,45 +11,11 @@ type SafeGameLink = Readonly<{
   slot: 1 | 2 | 3;
 }>;
 
-type RevealState = Readonly<{
-  markOpened: (videoAlias: string) => void;
-  openedVideos: ReadonlySet<string>;
-}>;
-
-const RevealContext = createContext<RevealState | null>(null);
-
-function useRevealState(): RevealState {
-  const state = useContext(RevealContext);
-  if (!state) throw new Error("Video game reveal provider is missing");
-  return state;
-}
-
-export function VideoGameRevealProvider({
-  children,
-}: Readonly<{ children: ReactNode }>) {
-  const [openedVideos, setOpenedVideos] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-  const markOpened = useCallback((videoAlias: string) => {
-    setOpenedVideos((current) => {
-      if (current.has(videoAlias)) return current;
-      const next = new Set(current);
-      next.add(videoAlias);
-      return next;
-    });
-  }, []);
-  return (
-    <RevealContext value={{ markOpened, openedVideos }}>
-      {children}
-    </RevealContext>
-  );
-}
-
 export function VideoOpenedMarker({
   videoAlias,
 }: Readonly<{ videoAlias: string }>) {
-  const { markOpened } = useRevealState();
-  useEffect(() => markOpened(videoAlias), [markOpened, videoAlias]);
+  const { markVideoOpened } = useLearnerActivityState();
+  useEffect(() => markVideoOpened(videoAlias), [markVideoOpened, videoAlias]);
   return null;
 }
 
@@ -72,7 +32,7 @@ export function VideoGameLaunchers({
   learnerAlias: string;
   videoAlias: string;
 }>) {
-  const { openedVideos } = useRevealState();
+  const { openedVideos } = useLearnerActivityState();
   if (!games.length || (!initiallyRevealed && !openedVideos.has(videoAlias))) {
     return null;
   }

@@ -30,7 +30,7 @@ describe("MemorySessionStore", () => {
     const first = store.issue(graph());
     const second = store.issue(graph());
     expect(first.cookieValue).not.toBe(second.cookieValue);
-    expect(first.cookieValue).toMatch(/^v2\./);
+    expect(first.cookieValue).toMatch(/^v3\./);
     expect(first.cookieValue).not.toContain("learner-nova");
     expect(store.read(first.cookieValue)?.learners[0]?.name).toBe("Nova");
     expect(store.delete(first.cookieValue)?.token).toBe(
@@ -39,7 +39,7 @@ describe("MemorySessionStore", () => {
     expect(store.read(first.cookieValue)).toBeNull();
   });
 
-  it("projects reusable game aliases without exposing raw IDs in the cookie", () => {
+  it("projects reusable video and map game aliases without exposing raw IDs in the cookie", () => {
     const input = syntheticAuthenticationResponse();
     input.Courses[0]!.Videos.push({
       ...input.Courses[0]!.Videos[0]!,
@@ -58,12 +58,24 @@ describe("MemorySessionStore", () => {
     const [first, second] = session.courses[0]!.videos;
     expect(first!.games).toHaveLength(3);
     expect(first!.games[0]!.alias).toBe(second!.games[0]!.alias);
+    const map = session.courses[0]!.gameMap!;
+    expect(map.sections).toHaveLength(3);
+    expect(map.sections[1]!.positions).toEqual([]);
+    expect(
+      map.sections
+        .flatMap(({ positions }) => positions)
+        .map(({ order }) => order),
+    ).toEqual([1, 2, 3]);
+    expect(map.sections[0]!.positions[0]!.game.alias).toBe(
+      first!.games[0]!.alias,
+    );
+    expect(new Set(map.sections.map(({ alias }) => alias)).size).toBe(3);
     expect(first!.games[0]!.alias).not.toBe(first!.games[0]!.id);
     expect(issued.cookieValue).not.toContain("game-starlight");
     expect(JSON.stringify(session)).not.toContain("ZipUrl");
   });
 
-  it("rejects an otherwise valid cookie from the v1 format", () => {
+  it("rejects an otherwise valid cookie from the v2 format", () => {
     const secret = "a-secret-long-enough-for-session-tests";
     const store = new MemorySessionStore({
       now: () => 1_000,
@@ -73,7 +85,7 @@ describe("MemorySessionStore", () => {
     });
     const issued = store.issue(graph());
     const [, expiry, sessionId] = issued.cookieValue.split(".");
-    const payload = `v1.${expiry}.${sessionId}`;
+    const payload = `v2.${expiry}.${sessionId}`;
     const signingKey = createHmac("sha256", secret)
       .update("merriloop-cookie-v1")
       .digest();
@@ -85,7 +97,7 @@ describe("MemorySessionStore", () => {
 
   it.each([
     "",
-    "v3.61000.invalid.signature",
+    "v4.61000.invalid.signature",
     "v1.words.invalid.signature",
     "v1.61000.short.signature",
     "x".repeat(513),

@@ -81,13 +81,13 @@ export default defineConfig({
       url: "http://localhost:3103",
     },
     {
-      command: `NODE_ENV=test MYLOCKER_API_BASE_URL=http://127.0.0.1:4100 PUBLIC_APP_ORIGIN=http://localhost:3104 SESSION_SECRET=a-fictional-e2e-game-secret-long-enough SESSION_TTL_SECONDS=3600 ENABLE_GAME_PLAYBACK=true ALLOWED_GAME_ORIGINS=http://127.0.0.1:4300 npm start -- --hostname localhost --port 3104`,
+      command: `NODE_ENV=test MYLOCKER_API_BASE_URL=http://127.0.0.1:4100 PUBLIC_APP_ORIGIN=http://localhost:3104 SESSION_SECRET=a-fictional-e2e-game-secret-long-enough SESSION_TTL_SECONDS=3600 ENABLE_GAME_PLAYBACK=true ALLOWED_GAME_ORIGINS=http://127.0.0.1:4300 ALLOWED_GAME_ARTWORK_ORIGINS=http://127.0.0.1:4400 npm start -- --hostname localhost --port 3104`,
       reuseExistingServer: !process.env.CI,
       timeout: 30_000,
       url: "http://localhost:3104",
     },
     {
-      command: `NODE_ENV=test MYLOCKER_API_BASE_URL=http://127.0.0.1:4100 PUBLIC_APP_ORIGIN=http://localhost:3105 SESSION_SECRET=a-fictional-e2e-game-expiry-secret SESSION_TTL_SECONDS=5 ENABLE_GAME_PLAYBACK=true ALLOWED_GAME_ORIGINS=http://127.0.0.1:4300 npm start -- --hostname localhost --port 3105`,
+      command: `NODE_ENV=test MYLOCKER_API_BASE_URL=http://127.0.0.1:4100 PUBLIC_APP_ORIGIN=http://localhost:3105 SESSION_SECRET=a-fictional-e2e-game-expiry-secret SESSION_TTL_SECONDS=5 ENABLE_GAME_PLAYBACK=true ALLOWED_GAME_ORIGINS=http://127.0.0.1:4300 ALLOWED_GAME_ARTWORK_ORIGINS=http://127.0.0.1:4400 npm start -- --hostname localhost --port 3105`,
       reuseExistingServer: !process.env.CI,
       timeout: 30_000,
       url: "http://localhost:3105",

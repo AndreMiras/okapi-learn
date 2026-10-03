@@ -1,4 +1,4 @@
-import { VideoGameRevealProvider } from "@/components/video-game-reveal";
+import { LearnerActivityProvider } from "@/components/learner-activity-state";
 
 export default async function LearnerLayout({
   children,
@@ -6,8 +6,8 @@ export default async function LearnerLayout({
 }: LayoutProps<"/learn/[learnerAlias]">) {
   const { learnerAlias } = await params;
   return (
-    <VideoGameRevealProvider key={learnerAlias}>
+    <LearnerActivityProvider key={learnerAlias}>
       {children}
-    </VideoGameRevealProvider>
+    </LearnerActivityProvider>
   );
 }

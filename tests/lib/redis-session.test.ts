@@ -50,6 +50,7 @@ describe("RedisSessionStore", () => {
     };
     const issued = await new RedisSessionStore(options).issue(graph());
 
+    expect([...redis.values.values()][0]).toMatch(/^v3\./);
     expect([...redis.values.values()][0]).not.toContain(
       "fictional-upstream-token",
     );
@@ -65,6 +66,21 @@ describe("RedisSessionStore", () => {
       "fictional-upstream-token",
     );
     expect(await secondInstance.read(issued.cookieValue)).toBeNull();
+  });
+
+  it("rejects an encrypted record from the v2 format", async () => {
+    const redis = fakeRedis();
+    const store = new RedisSessionStore({
+      redis: redis.client,
+      secret: "a-secret-long-enough-for-session-tests",
+      ttlSeconds: 60,
+    });
+    const issued = await store.issue(graph());
+    const key = [...redis.values.keys()][0]!;
+    redis.values.set(key, redis.values.get(key)!.replace(/^v3\./, "v2."));
+
+    expect(await store.read(issued.cookieValue)).toBeNull();
+    expect(redis.values.size).toBe(0);
   });
 
   it("rejects records encrypted with another secret", async () => {
@@ -118,8 +134,8 @@ describe("RedisSessionStore", () => {
 
   it.each([
     "v3.nonce.tag.ciphertext",
-    "v2.nonce.tag",
-    "v2.nonce.tag.ciphertext.extra",
+    "v3.nonce.tag",
+    "v3.nonce.tag.ciphertext.extra",
     "v1.nonce.tag.ciphertext",
   ])("rejects malformed encrypted record %s", async (encrypted) => {
     const redis = fakeRedis();

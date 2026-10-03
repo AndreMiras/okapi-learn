@@ -13,6 +13,11 @@ export const FICTIONAL_GAME_IDS = Object.freeze([
   "game-comet",
   "game-constellation",
 ]);
+export const FICTIONAL_MAP_GAME_IDS = Object.freeze([
+  FICTIONAL_GAME_IDS[0],
+  "game-aurora",
+  "game-nebula",
+]);
 export const FICTIONAL_GAME_PACKAGE_BYTES = new Uint8Array([
   0x50, 0x4b, 0x03, 0x04,
 ]);
@@ -26,7 +31,9 @@ export const E2E_FORBIDDEN_BROWSER_VALUES = Object.freeze([
   "course-garden",
   "video-moonlight",
   "video-comet",
+  "map-orbit",
   ...FICTIONAL_GAME_IDS,
+  ...FICTIONAL_MAP_GAME_IDS,
   "audio-rain",
   "Fictional-Surname",
   "2017-01-01",
@@ -34,6 +41,7 @@ export const E2E_FORBIDDEN_BROWSER_VALUES = Object.freeze([
   "media.example.test",
   "images.example.test",
   "games.example.test",
+  "127.0.0.1:4400",
 ]);
 
 export const E2E_USERS = Object.freeze({
@@ -77,6 +85,81 @@ export type LedgerEntry = Readonly<{
   path: string;
 }>;
 
+export function syntheticGameMap() {
+  return {
+    BackImage: "https://images.example.test/maps/orbit-back.png",
+    Color: "#24365f",
+    FrontImage: "https://images.example.test/maps/orbit-front.png",
+    Id: "map-orbit",
+    Marker: "https://images.example.test/maps/marker.png",
+    Sections: [
+      {
+        BackImage: "https://images.example.test/maps/section-one-back.png",
+        FrontImage: "https://images.example.test/maps/section-one-front.png",
+        Height: 600,
+        Positions: [
+          {
+            FinishedBy: [],
+            GameId: FICTIONAL_MAP_GAME_IDS[1],
+            IsLastSection: false,
+            Orden: 2,
+            ViewedBy: ["learner-lyra"],
+            XEnd: 430,
+            XStart: 350,
+            YEnd: 340,
+            YStart: 260,
+            ZipUrl: "https://games.example.test/ignored-map-two.zip",
+          },
+          {
+            FinishedBy: ["learner-nova"],
+            GameId: FICTIONAL_MAP_GAME_IDS[0],
+            IsLastSection: false,
+            Orden: 1,
+            ViewedBy: ["learner-nova", "learner-lyra"],
+            XEnd: 190,
+            XStart: 110,
+            YEnd: 190,
+            YStart: 110,
+            ZipUrl: "https://games.example.test/ignored-map-one.zip",
+          },
+        ],
+        Width: 800,
+        ignoredSectionField: "must be dropped",
+      },
+      {
+        BackImage: "https://images.example.test/maps/empty-back.png",
+        FrontImage: "https://images.example.test/maps/empty-front.png",
+        Height: 500,
+        Positions: [],
+        Width: 800,
+      },
+      {
+        BackImage: "https://images.example.test/maps/section-three-back.png",
+        FrontImage: "https://images.example.test/maps/section-three-front.png",
+        Height: 700,
+        Positions: [
+          {
+            FinishedBy: ["learner-lyra"],
+            GameId: FICTIONAL_MAP_GAME_IDS[2],
+            IsLastSection: false,
+            Orden: 3,
+            ViewedBy: ["learner-lyra"],
+            XEnd: 540,
+            XStart: 440,
+            YEnd: 560,
+            YStart: 460,
+            ZipUrl: "https://games.example.test/ignored-map-three.zip",
+          },
+        ],
+        Width: 800,
+      },
+    ],
+    Title: "Orbit game map",
+    UpdatedOn: null,
+    ignoredMapField: "must be dropped",
+  };
+}
+
 export function syntheticAuthenticationResponse() {
   return {
     authToken: FICTIONAL_TOKEN,
@@ -84,7 +167,14 @@ export function syntheticAuthenticationResponse() {
       {
         Audios: [],
         CourseId: "course-orbit",
-        GameMap: { ignored: true },
+        GameMap: syntheticGameMap(),
+        GameSections: [
+          {
+            Games: [{ GameId: "ignored-section-game" }],
+            Title: "Ignored section catalog",
+          },
+        ],
+        Games: [{ GameId: "ignored-course-game" }],
         Name: "Orbit English",
         Videos: [
           {
@@ -130,8 +220,16 @@ export function syntheticAuthenticationResponse() {
   };
 }
 
-function responseForUsername(username: string): unknown {
+function responseForUsername(
+  username: string,
+  gameArtworkOrigin?: string,
+): unknown {
   const base = syntheticAuthenticationResponse();
+  if (gameArtworkOrigin) {
+    base.Courses[0]!.GameMap.Sections.forEach((section, index) => {
+      section.FrontImage = `${gameArtworkOrigin}/maps/section-${index + 1}.png`;
+    });
+  }
   if (username === "flow-game-reveal@example.test") {
     return {
       ...base,
@@ -212,7 +310,7 @@ function responseForUsername(username: string): unknown {
   if (username === E2E_USERS.emptyCatalog) {
     return {
       ...base,
-      Courses: [{ ...base.Courses[0], Audios: [], Videos: [] }],
+      Courses: [{ ...base.Courses[0], Audios: [], GameMap: null, Videos: [] }],
     };
   }
   if (username === E2E_USERS.multipleLearners) {
@@ -315,6 +413,7 @@ export async function startSyntheticUpstream(
   scenario: FixtureScenario = "success",
   requestedPort = 0,
   gamePackageOrigin?: string,
+  gameArtworkOrigin?: string,
 ) {
   const ledger: LedgerEntry[] = [];
   const server = createServer(async (request, response) => {
@@ -325,10 +424,16 @@ export async function startSyntheticUpstream(
       ? decodeURIComponent(request.url.slice("/api/Alumnes/GetGame/".length))
       : null;
     if (request.method === "GET" && gameId !== null) {
-      const gameIndex = FICTIONAL_GAME_IDS.indexOf(gameId);
+      const objectName = new Map<string, string>([
+        [FICTIONAL_GAME_IDS[0], "mixed"],
+        [FICTIONAL_GAME_IDS[1], "unsupported"],
+        [FICTIONAL_GAME_IDS[2], "retry-malformed"],
+        [FICTIONAL_MAP_GAME_IDS[1], "mixed"],
+        [FICTIONAL_MAP_GAME_IDS[2], "unsupported"],
+      ]).get(gameId);
       const accepted =
         Boolean(gamePackageOrigin) &&
-        gameIndex >= 0 &&
+        objectName !== undefined &&
         request.headers.accept ===
           "application/octet-stream, application/zip" &&
         request.headers["cache-control"] === "no-store" &&
@@ -353,10 +458,9 @@ export async function startSyntheticUpstream(
           JSON.stringify({ category: "invalid_fixture_request" }),
         );
       }
-      const objectNames = ["mixed", "unsupported", "retry-malformed"];
       response.writeHead(302, {
         "Cache-Control": "no-store",
-        Location: `${gamePackageOrigin}/objects/${objectNames[gameIndex]}.zip`,
+        Location: `${gamePackageOrigin}/objects/${objectName}.zip`,
       });
       response.end();
       return;
@@ -420,7 +524,7 @@ export async function startSyntheticUpstream(
       return respond(
         response,
         200,
-        JSON.stringify(responseForUsername(username)),
+        JSON.stringify(responseForUsername(username, gameArtworkOrigin)),
       );
     }
 

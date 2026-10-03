@@ -1,4 +1,4 @@
-import type { MediaKind } from "@/lib/mylocker/types";
+import type { MediaKind, NormalizedMapPosition } from "@/lib/mylocker/types";
 
 export type SessionGameLink = Readonly<{
   alias: string;
@@ -19,8 +19,32 @@ export type SessionMedia = Readonly<{
   viewedByLearnerIds: readonly string[];
 }>;
 
+export type SessionStandaloneGame = Readonly<{
+  alias: string;
+  id: string;
+}>;
+
+export type SessionMapPosition = Omit<NormalizedMapPosition, "gameId"> &
+  Readonly<{ game: SessionStandaloneGame }>;
+
+export type SessionMapSection = Readonly<{
+  alias: string;
+  frontImageUrl: string;
+  height: number;
+  positions: readonly SessionMapPosition[];
+  width: number;
+}>;
+
+export type SessionGameMap = Readonly<{
+  color: string | null;
+  id: string;
+  sections: readonly SessionMapSection[];
+  title: string | null;
+}>;
+
 export type SessionCourse = Readonly<{
   audios: readonly SessionMedia[];
+  gameMap: SessionGameMap | null;
   id: string;
   name: string;
   videos: readonly SessionMedia[];

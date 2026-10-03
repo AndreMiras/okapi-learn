@@ -8,22 +8,23 @@ Without Upstash Redis, run exactly one Node.js 24 process behind a reverse proxy
 
 All variables are server-only. Startup rejects missing, malformed, unsafe, or contradictory values.
 
-| Variable                | Requirement                                                                                             |
-| ----------------------- | ------------------------------------------------------------------------------------------------------- |
-| `SESSION_SECRET`        | At least 32 random bytes; rotate by restarting and accepting that all sessions end.                     |
-| `SESSION_TTL_SECONDS`   | Integer from 1 through 28800; absolute and non-sliding.                                                 |
-| `PUBLIC_APP_ORIGIN`     | Exact public HTTPS origin, with no credentials, path, query, or fragment.                               |
-| `KV_REST_API_URL`       | Upstash REST endpoint; required with `KV_REST_API_TOKEN` on Vercel.                                     |
-| `KV_REST_API_TOKEN`     | Upstash REST token; required with `KV_REST_API_URL` on Vercel.                                          |
-| `MYLOCKER_API_BASE_URL` | Optional; production permits only the compiled approved origin.                                         |
-| `ENABLE_AUDIO_PLAYBACK` | `false` by default; set to `true` only after the independent audio gate is approved.                    |
-| `ENABLE_VIDEO_PLAYBACK` | `false` by default; set to `true` only after the independent video gate is approved.                    |
-| `ENABLE_GAME_PLAYBACK`  | `false` by default; requires the separate accepted-risk game checklist and exact origin approval.       |
-| `ALLOWED_AUDIO_ORIGINS` | Comma-separated exact HTTPS origins; no paths, wildcards, credentials, fragments, or non-default ports. |
-| `ALLOWED_VIDEO_ORIGINS` | Same policy, independently approved for video.                                                          |
-| `ALLOWED_GAME_ORIGINS`  | Exact package redirect origins only; required when games are enabled and independent of media origins.  |
+| Variable                       | Requirement                                                                                               |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `SESSION_SECRET`               | At least 32 random bytes; rotate by restarting and accepting that all sessions end.                       |
+| `SESSION_TTL_SECONDS`          | Integer from 1 through 28800; absolute and non-sliding.                                                   |
+| `PUBLIC_APP_ORIGIN`            | Exact public HTTPS origin, with no credentials, path, query, or fragment.                                 |
+| `KV_REST_API_URL`              | Upstash REST endpoint; required with `KV_REST_API_TOKEN` on Vercel.                                       |
+| `KV_REST_API_TOKEN`            | Upstash REST token; required with `KV_REST_API_URL` on Vercel.                                            |
+| `MYLOCKER_API_BASE_URL`        | Optional; production permits only the compiled approved origin.                                           |
+| `ENABLE_AUDIO_PLAYBACK`        | `false` by default; set to `true` only after the independent audio gate is approved.                      |
+| `ENABLE_VIDEO_PLAYBACK`        | `false` by default; set to `true` only after the independent video gate is approved.                      |
+| `ENABLE_GAME_PLAYBACK`         | `false` by default; requires the separate accepted-risk game checklist and exact origin approval.         |
+| `ALLOWED_AUDIO_ORIGINS`        | Comma-separated exact HTTPS origins; no paths, wildcards, credentials, fragments, or non-default ports.   |
+| `ALLOWED_VIDEO_ORIGINS`        | Same policy, independently approved for video.                                                            |
+| `ALLOWED_GAME_ORIGINS`         | Exact package redirect origins only; required when games are enabled and independent of media origins.    |
+| `ALLOWED_GAME_ARTWORK_ORIGINS` | Exact map artwork origins only; required when games are enabled and independent of package/media origins. |
 
-Media and game origins must not share the application hostname because a host-only session cookie could otherwise be sent to them. HTTP origins are accepted only for loopback synthetic tests outside production. Game package approval does not enable audio or video, and media approval does not enable games.
+Media, game package, and game artwork origins must not share the application hostname because a host-only session cookie could otherwise be sent to them. HTTP origins are accepted only for loopback synthetic tests outside production. Package approval does not approve artwork retrieval, game approval does not enable audio or video, and media approval does not enable games.
 
 ## Game package boundary
 

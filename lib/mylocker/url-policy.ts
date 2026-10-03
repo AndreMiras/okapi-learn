@@ -1,6 +1,6 @@
 import { UpstreamError } from "./errors";
 
-export function normalizeServerHeldMediaUrl(value: unknown): string | null {
+function normalizeServerHeldUrl(value: unknown): string | null {
   if (value === null || value === undefined || value === "") return null;
   if (typeof value !== "string" || value.length > 2048) {
     throw new UpstreamError("invalid_response");
@@ -28,6 +28,16 @@ export function normalizeServerHeldMediaUrl(value: unknown): string | null {
   }
 
   return url.href;
+}
+
+export function normalizeServerHeldMediaUrl(value: unknown): string | null {
+  return normalizeServerHeldUrl(value);
+}
+
+export function normalizeServerHeldArtworkUrl(value: unknown): string {
+  const normalized = normalizeServerHeldUrl(value);
+  if (!normalized) throw new UpstreamError("invalid_response");
+  return normalized;
 }
 
 export function selectPlayableMediaUrl(

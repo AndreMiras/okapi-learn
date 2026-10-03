@@ -8,6 +8,7 @@ import {
 
 const validEnvironment = {
   ALLOWED_AUDIO_ORIGINS: "",
+  ALLOWED_GAME_ARTWORK_ORIGINS: "",
   ALLOWED_GAME_ORIGINS: "",
   ALLOWED_VIDEO_ORIGINS: "",
   ENABLE_AUDIO_PLAYBACK: "false",
@@ -98,11 +99,31 @@ describe("parseServerConfig", () => {
       ...validEnvironment,
       ALLOWED_GAME_ORIGINS:
         "https://packages.example, https://packages.example",
+      ALLOWED_GAME_ARTWORK_ORIGINS:
+        "https://artwork.example, https://artwork.example",
       ENABLE_GAME_PLAYBACK: "true",
     });
     expect(config.allowedGameOrigins).toEqual(["https://packages.example"]);
+    expect(config.allowedGameArtworkOrigins).toEqual([
+      "https://artwork.example",
+    ]);
     expect(config.allowedAudioOrigins).toEqual([]);
     expect(config.allowedVideoOrigins).toEqual([]);
+  });
+
+  it.each([
+    ["ALLOWED_GAME_ORIGINS", "package"],
+    ["ALLOWED_GAME_ARTWORK_ORIGINS", "artwork"],
+  ])("requires an independent game %s allowlist when enabled", (missing) => {
+    expect(() =>
+      parseServerConfig({
+        ...validEnvironment,
+        ALLOWED_GAME_ARTWORK_ORIGINS: "https://artwork.example",
+        ALLOWED_GAME_ORIGINS: "https://packages.example",
+        [missing]: "",
+        ENABLE_GAME_PLAYBACK: "true",
+      }),
+    ).toThrow(/Game playback/);
   });
 
   it("accepts only HTTPS media origins and removes duplicates", () => {
@@ -151,6 +172,15 @@ describe("parseServerConfig", () => {
     ).toThrow(/cookie hostname/);
   });
 
+  it("rejects artwork origins that could receive the application cookie", () => {
+    expect(() =>
+      parseServerConfig({
+        ...validEnvironment,
+        ALLOWED_GAME_ARTWORK_ORIGINS: "https://learn.okapi.example",
+      }),
+    ).toThrow(/cookie hostname/);
+  });
+
   it.each([
     "https://user:pass@media.example",
     "https://media.example/path",
@@ -178,6 +208,22 @@ describe("parseServerConfig", () => {
       parseServerConfig({
         ...validEnvironment,
         ALLOWED_GAME_ORIGINS: origin,
+      }),
+    ).toThrow();
+  });
+
+  it.each([
+    "http://artwork.example",
+    "https://user:pass@artwork.example",
+    "https://artwork.example/path",
+    "https://artwork.example?grant=value",
+    "https://artwork.example#fragment",
+    "https://artwork.example:444",
+  ])("rejects unsafe production artwork origin %s", (origin) => {
+    expect(() =>
+      parseServerConfig({
+        ...validEnvironment,
+        ALLOWED_GAME_ARTWORK_ORIGINS: origin,
       }),
     ).toThrow();
   });

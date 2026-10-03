@@ -5,7 +5,11 @@ import { ProtectedTools } from "@/components/protected-tools";
 import { VideoGameLaunchers } from "@/components/video-game-reveal";
 import { getServerConfig } from "@/lib/config/server";
 import { requireSession } from "@/lib/session/dal";
-import { isVideoViewedByLearner, selectLearner } from "@/lib/session/selectors";
+import {
+  isVideoViewedByLearner,
+  projectGameMapForLearner,
+  selectLearner,
+} from "@/lib/session/selectors";
 import type { SessionLearner, SessionMedia } from "@/lib/session/types";
 
 function MediaGroup({
@@ -84,9 +88,14 @@ export default async function CatalogPage({
   params,
 }: PageProps<"/learn/[learnerAlias]">) {
   const { learnerAlias } = await params;
-  const selection = selectLearner(await requireSession(), learnerAlias);
+  const session = await requireSession();
+  const selection = selectLearner(session, learnerAlias);
   if (!selection) notFound();
   const gamesEnabled = getServerConfig().gamePlaybackEnabled;
+  const gameMap = projectGameMapForLearner(session, learnerAlias);
+  const hasMapGames = gameMap?.sections.some(
+    ({ positions }) => positions.length,
+  );
   return (
     <div className="grid w-full gap-[clamp(2rem,6vw,5rem)]">
       <div>
@@ -119,6 +128,37 @@ export default async function CatalogPage({
           learnerAlias={learnerAlias}
           title="Watch"
         />
+        {hasMapGames && (
+          <section className="mt-12" aria-labelledby="games-heading">
+            <h2
+              className="mt-0 mb-2 font-['Fraunces_Variable',serif] text-[clamp(1.5rem,4vw,2rem)] leading-[1.05]"
+              id="games-heading"
+            >
+              Games
+            </h2>
+            <Link
+              className="mt-8 grid min-h-36 max-w-xl grid-cols-[6rem_minmax(0,1fr)] overflow-hidden rounded-[clamp(1rem,4vw,2rem)] border border-[#16324f26] bg-[#fffdf7] no-underline shadow-[0_18px_50px_#16324f18] focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-[#dd796f]"
+              href={`/learn/${learnerAlias}/games`}
+            >
+              <span
+                aria-hidden="true"
+                className="min-h-full border-r-2 border-[#16324f] bg-[radial-gradient(circle_at_50%_25%,#f4b942_0_12%,transparent_13%),linear-gradient(160deg,#b9cae5_0_42%,#a8d5ba_43%_72%,#dd796f_73%)]"
+              />
+              <span className="flex min-w-0 flex-col gap-2 p-4 [overflow-wrap:anywhere]">
+                <strong className="font-['Fraunces_Variable',serif] text-xl">
+                  Game map
+                </strong>
+                <span>
+                  Follow the numbered path through this course&apos;s standalone
+                  activities.
+                </span>
+                {!gamesEnabled && (
+                  <small>Playback is currently unavailable.</small>
+                )}
+              </span>
+            </Link>
+          </section>
+        )}
       </div>
       <ProtectedTools />
     </div>

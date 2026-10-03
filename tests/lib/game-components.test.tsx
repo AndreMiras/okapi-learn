@@ -10,12 +10,26 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const routerPush = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: routerPush }),
+}));
+
 import { ExploreActivity } from "@/components/games/explore-activity";
 import { GameAudioController } from "@/components/games/game-audio";
 import { GameRunner } from "@/components/games/game-runner";
 import { GameStatus } from "@/components/games/game-status";
 import { ListenActivity } from "@/components/games/listen-activity";
 import { WildcardActivity } from "@/components/games/wildcard-activity";
+import {
+  LearnerActivityProvider,
+  useLearnerActivityState,
+} from "@/components/learner-activity-state";
+import { StandaloneGameMap } from "@/components/standalone-game-map";
+import {
+  VideoGameLaunchers,
+  VideoOpenedMarker,
+} from "@/components/video-game-reveal";
 import type { GameAssetRegistry } from "@/lib/games/package/assets";
 import type {
   DynamicElement,
@@ -24,6 +38,7 @@ import type {
   WildcardDynamic,
 } from "@/lib/games/package/types";
 import type { RunnerState } from "@/lib/games/runtime/state";
+import type { LearnerGameMap } from "@/lib/session/selectors";
 import {
   createFictionalGameZip,
   createUnnamedFictionalGameZip,
@@ -114,7 +129,72 @@ function stubObjectUrls(revokeObjectURL: (value: string) => void) {
   vi.stubGlobal("URL", TestUrl);
 }
 
+const learnerMap: LearnerGameMap = {
+  color: "#24365f",
+  sections: [
+    {
+      alias: "section-alias-one",
+      height: 600,
+      positions: [
+        {
+          gameAlias: "game-alias-one",
+          initiallyFinished: true,
+          initiallyViewed: true,
+          order: 1,
+          xEnd: 190,
+          xStart: 110,
+          yEnd: 190,
+          yStart: 110,
+        },
+        {
+          gameAlias: "game-alias-two",
+          initiallyFinished: false,
+          initiallyViewed: false,
+          order: 2,
+          xEnd: 430,
+          xStart: 350,
+          yEnd: 340,
+          yStart: 260,
+        },
+      ],
+      width: 800,
+    },
+    {
+      alias: "section-alias-empty",
+      height: 500,
+      positions: [],
+      width: 800,
+    },
+    {
+      alias: "section-alias-three",
+      height: 700,
+      positions: [
+        {
+          gameAlias: "game-alias-three",
+          initiallyFinished: false,
+          initiallyViewed: false,
+          order: 3,
+          xEnd: 540,
+          xStart: 440,
+          yEnd: 560,
+          yStart: 460,
+        },
+      ],
+      width: 800,
+    },
+  ],
+  title: "Fictional constellation trail",
+};
+
+function CompleteGame({ alias }: Readonly<{ alias: string }>) {
+  const { markStandaloneComplete } = useLearnerActivityState();
+  return (
+    <button onClick={() => markStandaloneComplete(alias)}>Complete</button>
+  );
+}
+
 beforeEach(() => {
+  routerPush.mockReset();
   vi.stubGlobal("matchMedia", () => ({
     addEventListener: vi.fn(),
     matches: false,
@@ -697,6 +777,137 @@ describe("activity renderers", () => {
   });
 });
 
+describe("learner map activity state", () => {
+  it("preserves video reveal behavior through the learner activity provider", async () => {
+    render(
+      <LearnerActivityProvider>
+        <VideoGameLaunchers
+          enabled
+          games={[{ alias: "activity-alias", slot: 1 }]}
+          initiallyRevealed={false}
+          learnerAlias="learner-alias"
+          videoAlias="video-alias"
+        />
+        <VideoOpenedMarker videoAlias="video-alias" />
+      </LearnerActivityProvider>,
+    );
+
+    expect(
+      (await screen.findByRole("link", { name: "Activity" })).getAttribute(
+        "href",
+      ),
+    ).toBe("/learn/learner-alias/media/video-alias/game/activity-alias");
+  });
+
+  it("renders section geometry, sparse markers, status text, and alias-only artwork", () => {
+    render(
+      <LearnerActivityProvider>
+        <StandaloneGameMap
+          enabled
+          learnerAlias="learner-alias"
+          map={learnerMap}
+        />
+      </LearnerActivityProvider>,
+    );
+
+    const completed = screen.getByRole("link", {
+      name: "Game 1, completed",
+    });
+    const available = screen.getByRole("link", {
+      name: "Game 2, available",
+    });
+    expect(completed.getAttribute("href")).toBe(
+      "/learn/learner-alias/games/game-alias-one",
+    );
+    expect(available.getAttribute("href")).toBe(
+      "/learn/learner-alias/games/game-alias-two",
+    );
+    expect(screen.queryByRole("link", { name: /Game 3/ })).toBeNull();
+    expect(screen.getByLabelText("Game 3, locked")).toBeTruthy();
+    expect(completed.style.getPropertyValue("--game-map-marker-left")).toBe(
+      "18.7500%",
+    );
+    expect(completed.style.getPropertyValue("--game-map-marker-top")).toBe(
+      "25.0000%",
+    );
+    expect(available.style.getPropertyValue("--game-map-marker-left")).toBe(
+      "48.7500%",
+    );
+    const images = screen.getAllByRole("img", { name: /Map section/ });
+    expect(images).toHaveLength(3);
+    expect(images[0]!.getAttribute("src")).toBe(
+      "/api/learn/learner-alias/game-map/sections/section-alias-one/artwork",
+    );
+    expect(document.body.textContent).not.toContain("images.example");
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("overlays local completion, advances one actual position, and resets with the provider", () => {
+    const view = render(
+      <LearnerActivityProvider key="learner-one">
+        <CompleteGame alias="game-alias-two" />
+        <StandaloneGameMap
+          enabled
+          learnerAlias="learner-one"
+          map={learnerMap}
+        />
+      </LearnerActivityProvider>,
+    );
+    expect(screen.queryByRole("link", { name: /Game 3/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Complete" }));
+    expect(
+      screen.getByRole("link", { name: "Game 2, completed" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Game 3, available" }),
+    ).toBeTruthy();
+
+    view.rerender(
+      <LearnerActivityProvider key="learner-two">
+        <CompleteGame alias="game-alias-two" />
+        <StandaloneGameMap
+          enabled
+          learnerAlias="learner-two"
+          map={learnerMap}
+        />
+      </LearnerActivityProvider>,
+    );
+    expect(screen.queryByRole("link", { name: /Game 3/ })).toBeNull();
+    expect(screen.getByLabelText("Game 3, locked")).toBeTruthy();
+  });
+
+  it("makes no artwork elements while disabled and preserves fallback status", () => {
+    const view = render(
+      <LearnerActivityProvider>
+        <StandaloneGameMap
+          enabled={false}
+          learnerAlias="learner-alias"
+          map={learnerMap}
+        />
+      </LearnerActivityProvider>,
+    );
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(screen.getByText(/artwork are disabled/)).toBeTruthy();
+
+    view.rerender(
+      <LearnerActivityProvider>
+        <StandaloneGameMap
+          enabled
+          learnerAlias="learner-alias"
+          map={learnerMap}
+        />
+      </LearnerActivityProvider>,
+    );
+    fireEvent.error(screen.getAllByRole("img", { name: /Map section/ })[0]!);
+    expect(
+      screen.getByText("Map artwork is unavailable for this section."),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Game 1, completed" }),
+    ).toBeTruthy();
+  });
+});
+
 describe("GameRunner", () => {
   it("keeps disabled playback inert", () => {
     const fetchMock = vi.fn();
@@ -706,13 +917,15 @@ describe("GameRunner", () => {
         activityLabel="Activity"
         enabled={false}
         expiresAt={Date.now() + 60_000}
-        gameAlias="game-a"
-        learnerAlias="learner-a"
-        mediaAlias="media-a"
+        packageHref="/api/package"
         returnHref="/video"
+        returnLabel="Back to video"
       />,
     );
     expect(screen.getByRole("status").textContent).toContain("not enabled");
+    expect(
+      screen.getByRole("link", { name: "Back to video" }).getAttribute("href"),
+    ).toBe("/video");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -732,10 +945,9 @@ describe("GameRunner", () => {
         activityLabel="Activity"
         enabled
         expiresAt={Date.now() + 60_000}
-        gameAlias="game-a"
-        learnerAlias="learner-a"
-        mediaAlias="media-a"
+        packageHref="/api/package"
         returnHref="/video"
+        returnLabel="Back to video"
       />,
     );
     expect(fetchMock).not.toHaveBeenCalled();
@@ -745,7 +957,7 @@ describe("GameRunner", () => {
       expect(screen.getByRole("status").textContent).toContain("Prompt ready"),
     );
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/learn/learner-a/media/media-a/games/game-a/package",
+      "/api/package",
       expect.objectContaining({ method: "POST" }),
     );
     view.unmount();
@@ -762,10 +974,9 @@ describe("GameRunner", () => {
         activityLabel="Activity"
         enabled
         expiresAt={Date.now() + 60_000}
-        gameAlias="game-a"
-        learnerAlias="learner-a"
-        mediaAlias="media-a"
+        packageHref="/api/package"
         returnHref="/video"
+        returnLabel="Back to video"
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Play activity" }));
@@ -796,10 +1007,9 @@ describe("GameRunner", () => {
         activityLabel="Activity"
         enabled
         expiresAt={Date.now() + 60_000}
-        gameAlias="game-a"
-        learnerAlias="learner-a"
-        mediaAlias="media-a"
+        packageHref="/api/package"
         returnHref="/video"
+        returnLabel="Back to video"
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Play activity" }));
@@ -831,10 +1041,9 @@ describe("GameRunner", () => {
         activityLabel="Activity"
         enabled
         expiresAt={Date.now() + 60_000}
-        gameAlias="game-a"
-        learnerAlias="learner-a"
-        mediaAlias="media-a"
+        packageHref="/api/package"
         returnHref="/video"
+        returnLabel="Back to video"
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Play activity" }));
@@ -855,7 +1064,7 @@ describe("GameRunner", () => {
     vi.stubGlobal("Audio", ImmediateAudio);
     vi.stubGlobal(
       "confirm",
-      vi.fn(() => true),
+      vi.fn().mockReturnValueOnce(false).mockReturnValue(true),
     );
     vi.stubGlobal(
       "createImageBitmap",
@@ -867,17 +1076,21 @@ describe("GameRunner", () => {
         activityLabel="Activity"
         enabled
         expiresAt={Date.now() + 60_000}
-        gameAlias="game-a"
-        learnerAlias="learner-a"
-        mediaAlias="media-a"
+        packageHref="/api/package"
         returnHref="/video"
+        returnLabel="Back to video"
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Play activity" }));
     await screen.findByRole("heading", { name: "Listen and choose" });
     fireEvent.click(screen.getByRole("button", { name: "Exit activity" }));
     expect(confirm).toHaveBeenCalledOnce();
+    expect(revokeObjectURL).not.toHaveBeenCalled();
+    expect(routerPush).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Exit activity" }));
+    expect(confirm).toHaveBeenCalledTimes(2);
     expect(revokeObjectURL).toHaveBeenCalled();
+    expect(routerPush).toHaveBeenCalledWith("/video");
   });
 
   it("releases package URLs at absolute session expiry", async () => {
@@ -911,10 +1124,9 @@ describe("GameRunner", () => {
         activityLabel="Activity"
         enabled
         expiresAt={Date.now() + 60_000}
-        gameAlias="game-a"
-        learnerAlias="learner-a"
-        mediaAlias="media-a"
+        packageHref="/api/package"
         returnHref="/video"
+        returnLabel="Back to video"
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Play activity" }));
@@ -937,15 +1149,16 @@ describe("GameRunner", () => {
       vi.fn(async () => ({ close: vi.fn(), height: 6, width: 8 })),
     );
     stubObjectUrls(revokeObjectURL);
-    render(
+    const onComplete = vi.fn();
+    const view = render(
       <GameRunner
         activityLabel="Activity"
         enabled
         expiresAt={Date.now() + 60_000}
-        gameAlias="game-a"
-        learnerAlias="learner-a"
-        mediaAlias="media-a"
+        onComplete={onComplete}
+        packageHref="/api/package"
         returnHref="/video"
+        returnLabel="Back to video"
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Play activity" }));
@@ -986,5 +1199,18 @@ describe("GameRunner", () => {
     ).toBeTruthy();
     expect(screen.getByText(/not sent to MyLocker/)).toBeTruthy();
     expect(revokeObjectURL).toHaveBeenCalled();
+    expect(onComplete).toHaveBeenCalledOnce();
+    view.rerender(
+      <GameRunner
+        activityLabel="Activity"
+        enabled
+        expiresAt={Date.now() + 60_000}
+        onComplete={onComplete}
+        packageHref="/api/package"
+        returnHref="/video"
+        returnLabel="Back to video"
+      />,
+    );
+    expect(onComplete).toHaveBeenCalledOnce();
   });
 });

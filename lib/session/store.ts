@@ -4,11 +4,13 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 import type {
   AuthenticationGraph,
+  NormalizedGameMap,
   NormalizedMedia,
 } from "@/lib/mylocker/types";
 
 import type {
   SessionCourse,
+  SessionGameMap,
   SessionGameLink,
   SessionMedia,
   SessionRecord,
@@ -16,7 +18,7 @@ import type {
 
 export const SESSION_COOKIE_NAME = "merriloop_session";
 export const MAX_ACTIVE_SESSIONS = 500;
-const COOKIE_VERSION = "v2";
+const COOKIE_VERSION = "v3";
 
 export type IssuedSession = Readonly<{
   cookieValue: string;
@@ -98,25 +100,56 @@ export class MemorySessionStore {
     const sessionId = this.#random(32).toString("base64url");
     const alias = () => this.#random(18).toString("base64url");
     const gameAliases = new Map<string, string>();
+    const gameAlias = (gameId: string) => {
+      let value = gameAliases.get(gameId);
+      if (!value) {
+        value = alias();
+        gameAliases.set(gameId, value);
+      }
+      return value;
+    };
     const projectMedia = (item: NormalizedMedia): SessionMedia => {
       const games: readonly SessionGameLink[] = Object.freeze(
-        item.games.map((game) => {
-          let gameAlias = gameAliases.get(game.id);
-          if (!gameAlias) {
-            gameAlias = alias();
-            gameAliases.set(game.id, gameAlias);
-          }
-          return Object.freeze({ ...game, alias: gameAlias });
-        }),
+        item.games.map((game) =>
+          Object.freeze({ ...game, alias: gameAlias(game.id) }),
+        ),
       );
       return Object.freeze({ ...item, alias: alias(), games });
     };
+    const projectGameMap = (map: NormalizedGameMap): SessionGameMap =>
+      Object.freeze({
+        color: map.color,
+        id: map.id,
+        sections: Object.freeze(
+          map.sections.map((section) =>
+            Object.freeze({
+              alias: alias(),
+              frontImageUrl: section.frontImageUrl,
+              height: section.height,
+              positions: Object.freeze(
+                section.positions.map(({ gameId, ...position }) =>
+                  Object.freeze({
+                    ...position,
+                    game: Object.freeze({
+                      alias: gameAlias(gameId),
+                      id: gameId,
+                    }),
+                  }),
+                ),
+              ),
+              width: section.width,
+            }),
+          ),
+        ),
+        title: map.title,
+      });
     const courses: readonly SessionCourse[] = Object.freeze(
       graph.courses.map((course) =>
         Object.freeze({
           audios: Object.freeze(
             stableSortMedia(course.audios).map(projectMedia),
           ),
+          gameMap: course.gameMap ? projectGameMap(course.gameMap) : null,
           id: course.id,
           name: course.name,
           videos: Object.freeze(

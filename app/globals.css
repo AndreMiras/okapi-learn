@@ -54,6 +54,144 @@
   [style*="--game-aspect"] {
     aspect-ratio: var(--game-aspect);
   }
+
+  .game-map-shell {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(1.5rem, 4vw, 3rem);
+  }
+
+  .game-map-header h1,
+  .game-map-gate h1 {
+    margin: 0;
+    max-width: 48rem;
+    font-family: "Fraunces Variable", serif;
+    font-size: clamp(2.3rem, 6vw, 4.7rem);
+    line-height: 1.05;
+    letter-spacing: -0.045em;
+  }
+
+  .game-map-eyebrow {
+    margin: 0 0 0.75rem;
+    color: #8a403b;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .game-map-complete,
+  .game-map-gate {
+    border: 2px solid #16324f;
+    border-radius: 1rem;
+    background: #fff8e8;
+    padding: clamp(1.25rem, 4vw, 2rem);
+  }
+
+  .game-map-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow: visible;
+  }
+
+  .game-map-section {
+    position: relative;
+    width: 100%;
+    aspect-ratio: var(--game-map-aspect);
+    min-height: 8rem;
+  }
+
+  .game-map-artwork,
+  .game-map-markers {
+    position: absolute;
+    inset: 0;
+  }
+
+  .game-map-artwork {
+    overflow: hidden;
+    border: 2px solid #16324f;
+    border-radius: clamp(0.75rem, 3vw, 1.5rem);
+    background: #e8f0e5;
+  }
+
+  .game-map-artwork img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .game-map-image-fallback {
+    display: grid;
+    height: 100%;
+    margin: 0;
+    place-items: center;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .game-map-marker {
+    position: absolute;
+    top: var(--game-map-marker-top);
+    left: var(--game-map-marker-left);
+    display: inline-grid;
+    min-width: 44px;
+    min-height: 44px;
+    translate: -50% -50%;
+    place-items: center;
+    border: 3px solid #16324f;
+    border-radius: 999px;
+    color: #16324f;
+    font-weight: 800;
+    text-decoration: none;
+    box-shadow: 3px 3px 0 #16324f;
+  }
+
+  .game-map-marker-available {
+    background: #f4b942;
+  }
+
+  .game-map-marker-completed {
+    background: #a8d5ba;
+  }
+
+  .game-map-marker-replayable {
+    background: #fffdf7;
+    outline: 3px dashed #8a403b;
+    outline-offset: 2px;
+  }
+
+  .game-map-marker-locked {
+    background: #e7e2d5;
+    color: #435467;
+    box-shadow: none;
+  }
+
+  .game-map-marker:focus-visible {
+    outline: 4px solid #dd796f;
+    outline-offset: 4px;
+    z-index: 1;
+  }
+
+  .game-map-key {
+    border: 2px solid #16324f;
+    border-radius: 1rem;
+    background: #fffdf7;
+    padding: clamp(1.25rem, 4vw, 2rem);
+  }
+
+  .game-map-key h2 {
+    margin-top: 0;
+    font-family: "Fraunces Variable", serif;
+  }
+
+  .game-map-key ol {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 0.5rem 1rem;
+    padding-left: 1.5rem;
+  }
 }
 
 @media (max-width: 40rem), (max-height: 40rem) {
@@ -83,6 +221,22 @@
 
   .game-hotspot:focus-visible {
     background: Canvas;
+    outline-color: Highlight;
+  }
+
+  .game-map-artwork,
+  .game-map-key,
+  .game-map-marker {
+    border-color: CanvasText;
+  }
+
+  .game-map-marker {
+    background: Canvas;
+    color: CanvasText;
+    forced-color-adjust: none;
+  }
+
+  .game-map-marker:focus-visible {
     outline-color: Highlight;
   }
 }

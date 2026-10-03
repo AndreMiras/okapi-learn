@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { GameRunner } from "@/components/games/game-runner";
 import { getServerConfig } from "@/lib/config/server";
+import { englishMessages } from "@/lib/i18n/messages/en";
 import { requireSession } from "@/lib/session/dal";
 import { selectVideoGame } from "@/lib/session/selectors";
 
@@ -44,10 +45,9 @@ export default async function GamePage({
         activityLabel={label}
         enabled={enabled}
         expiresAt={session.expiresAt}
-        gameAlias={gameAlias}
-        learnerAlias={learnerAlias}
-        mediaAlias={mediaAlias}
+        packageHref={`/api/learn/${learnerAlias}/media/${mediaAlias}/games/${gameAlias}/package`}
         returnHref={`/learn/${learnerAlias}/media/${mediaAlias}`}
+        returnLabel={englishMessages.games.backToVideo}
       />
     </section>
   );

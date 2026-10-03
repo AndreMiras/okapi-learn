@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -32,10 +34,10 @@ type GameRunnerProps = Readonly<{
   activityLabel: string;
   enabled: boolean;
   expiresAt: number;
-  gameAlias: string;
-  learnerAlias: string;
-  mediaAlias: string;
+  onComplete?: () => void;
+  packageHref: string;
   returnHref: string;
+  returnLabel: string;
 }>;
 
 class DeliveryError extends Error {
@@ -102,11 +104,12 @@ export function GameRunner({
   activityLabel,
   enabled,
   expiresAt,
-  gameAlias,
-  learnerAlias,
-  mediaAlias,
+  onComplete,
+  packageHref,
   returnHref,
+  returnLabel,
 }: GameRunnerProps) {
+  const router = useRouter();
   const [state, dispatch] = useReducer(runnerReducer, { status: "idle" });
   const [prepared, setPrepared] = useState<PreparedGame | null>(null);
   const [audioController, setAudioController] =
@@ -116,6 +119,7 @@ export function GameRunner({
   const audioRef = useRef<GameAudioController | null>(null);
   const completionRef = useRef<HTMLDivElement>(null);
   const failureRef = useRef<HTMLDivElement>(null);
+  const completionNotifiedRef = useRef(false);
   const requestId = useRef(0);
   useGameAssets(prepared?.assets ?? null);
 
@@ -164,7 +168,11 @@ export function GameRunner({
   useEffect(() => {
     if (state.status !== "complete") return;
     completionRef.current?.focus();
-  }, [state.status]);
+    if (!completionNotifiedRef.current) {
+      completionNotifiedRef.current = true;
+      onComplete?.();
+    }
+  }, [onComplete, state.status]);
 
   useEffect(() => {
     if (state.status !== "failed") return;
@@ -184,17 +192,14 @@ export function GameRunner({
       type: retry ? "RETRY" : "START_LOAD",
     });
     try {
-      const response = await fetch(
-        `/api/learn/${learnerAlias}/media/${mediaAlias}/games/${gameAlias}/package`,
-        {
-          body: null,
-          cache: "no-store",
-          credentials: "same-origin",
-          method: "POST",
-          redirect: "error",
-          signal: controller.signal,
-        },
-      );
+      const response = await fetch(packageHref, {
+        body: null,
+        cache: "no-store",
+        credentials: "same-origin",
+        method: "POST",
+        redirect: "error",
+        signal: controller.signal,
+      });
       if (!response.ok) {
         let category: unknown;
         try {
@@ -243,6 +248,7 @@ export function GameRunner({
   };
 
   const start = () => {
+    completionNotifiedRef.current = false;
     const next = ++requestId.current;
     void load(next, false);
   };
@@ -260,7 +266,7 @@ export function GameRunner({
     if (inProgress && !window.confirm(englishMessages.games.exitConfirmation))
       return;
     clear();
-    window.location.assign(returnHref);
+    router.push(returnHref);
   };
 
   if (!enabled) {
@@ -269,12 +275,12 @@ export function GameRunner({
         <p className="m-0" role="status">
           {englishMessages.games.disabled}
         </p>
-        <a
+        <Link
           className="game-secondary-action justify-self-start"
           href={returnHref}
         >
-          {englishMessages.games.backToVideo}
-        </a>
+          {returnLabel}
+        </Link>
       </div>
     );
   }

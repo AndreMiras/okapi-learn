@@ -137,6 +137,93 @@ async function expectSuccessfulDelivery(
 test.beforeEach(async ({ page }) => {
   await installGameHarness(page);
   await page.request.post("http://127.0.0.1:4300/__fixture__/reset");
+  await page.request.post("http://127.0.0.1:4400/__fixture__/reset");
+});
+
+test("renders an authorized alias-only map with accessible progression", async ({
+  page,
+}, testInfo) => {
+  const packageRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().endsWith("/package")) {
+      packageRequests.push(request.url());
+    }
+  });
+  await signIn(page, testInfo);
+  const artworkResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes("/game-map/sections/") &&
+      response.status() === 200,
+  );
+  await page.getByRole("link", { name: /Game map/ }).click();
+  await artworkResponse;
+
+  await expect(
+    page.getByRole("heading", { name: "Orbit game map" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Game 1, completed" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Game 2, available" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Game 3, locked")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Game 3/ })).toHaveCount(0);
+  await expect(page.getByRole("listitem")).toHaveCount(3);
+  const mapImages = page.getByRole("img", { name: /Map section/ });
+  await expect(mapImages).toHaveCount(3);
+
+  const mapUrl = page.url();
+  expect(mapUrl).toMatch(
+    /^http:\/\/localhost:3104\/learn\/[A-Za-z0-9_-]+\/games$/,
+  );
+  const imageSources = await mapImages.evaluateAll((images) =>
+    images.map((image) => (image as HTMLImageElement).src),
+  );
+  for (const value of [mapUrl, ...imageSources]) {
+    for (const forbidden of E2E_FORBIDDEN_BROWSER_VALUES) {
+      expect(value).not.toContain(forbidden);
+    }
+  }
+  expect(imageSources).toEqual(
+    expect.arrayContaining([
+      expect.stringMatching(
+        /^http:\/\/localhost:3104\/api\/learn\/[A-Za-z0-9_-]+\/game-map\/sections\/[A-Za-z0-9_-]+\/artwork$/,
+      ),
+    ]),
+  );
+
+  const firstMarker = page.getByRole("link", { name: "Game 1, completed" });
+  await firstMarker.focus();
+  await expect(firstMarker).toBeFocused();
+  const verticalFlow = await page.evaluate(() => {
+    const key = document.querySelector<HTMLElement>(".game-map-key")!;
+    const footer = document.querySelector<HTMLElement>("body > footer")!;
+    return {
+      footerTop: footer.getBoundingClientRect().top + window.scrollY,
+      keyBottom: key.getBoundingClientRect().bottom + window.scrollY,
+    };
+  });
+  expect(verticalFlow.footerTop).toBeGreaterThanOrEqual(verticalFlow.keyBottom);
+  await expectNoSeriousA11yIssues(page);
+  expect(packageRequests).toEqual([]);
+
+  const ledgerResponse = await page.request.get(
+    "http://127.0.0.1:4400/__fixture__/ledger",
+  );
+  const ledger = (await ledgerResponse.json()) as Array<{
+    accepted: boolean;
+    headerNames: string[];
+    path: string;
+  }>;
+  expect(ledger.length).toBeGreaterThan(0);
+  expect(ledger.every(({ accepted }) => accepted)).toBe(true);
+  for (const entry of ledger) {
+    expect(entry.path).toMatch(/^\/maps\/section-\d\.png$/);
+    expect(entry.headerNames).not.toContain("authorization");
+    expect(entry.headerNames).not.toContain("cookie");
+    expect(entry.headerNames).not.toContain("referer");
+  }
 });
 
 test("delivers and completes the mixed package with local-only state", async ({
@@ -232,6 +319,92 @@ test("delivers and completes the mixed package with local-only state", async ({
     )
     .toBe(0);
   await expectNoGamePersistence(page);
+});
+
+test("completes a standalone game, unlocks the next marker, and resets on reload", async ({
+  page,
+}, testInfo) => {
+  const browserRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().endsWith("/package")) {
+      browserRequests.push(request.url());
+    }
+  });
+
+  await signIn(page, testInfo);
+  await page.getByRole("link", { name: /Game map/ }).click();
+  await expect(page.getByLabel("Game 3, locked")).toBeVisible();
+  await page.getByRole("link", { name: "Game 2, available" }).click();
+  await expect(page.getByRole("heading", { name: "Game 2" })).toBeVisible();
+  const gamePageUrl = page.url();
+  expect(gamePageUrl).toMatch(
+    /^http:\/\/localhost:3104\/learn\/[A-Za-z0-9_-]+\/games\/[A-Za-z0-9_-]+$/,
+  );
+  for (const forbidden of E2E_FORBIDDEN_BROWSER_VALUES) {
+    expect(gamePageUrl).not.toContain(forbidden);
+  }
+  await expect(page.getByText(/unlocks the next map game only/)).toBeVisible();
+  await expectNoSeriousA11yIssues(page);
+  await expectSuccessfulDelivery(page, () =>
+    page.getByRole("button", { name: "Play activity" }).click(),
+  );
+
+  for (const label of [
+    "Picture 1",
+    "Picture 2",
+    "Picture 3: Shared picture",
+    "Picture 4: Shared picture",
+  ]) {
+    const choice = page.getByRole("button", { name: label, exact: true });
+    await expect(choice).toBeEnabled();
+    await choice.click();
+  }
+  const comet = page.getByRole("button", {
+    name: /^Picture \d+: Green comet$/,
+  });
+  await expect(comet).toBeEnabled();
+  if (testInfo.project.use.isMobile) await comet.tap();
+  else await comet.click();
+  const star = page.getByRole("button", { name: "Hotspot 1" });
+  await expect(star).toBeEnabled();
+  if (testInfo.project.use.isMobile) await star.tap();
+  else await star.click();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Play complete" }),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as typeof window & { __activeGameObjectUrls: Set<string> })
+            .__activeGameObjectUrls.size,
+      ),
+    )
+    .toBe(0);
+  await page.getByRole("button", { name: "Exit activity" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "Orbit game map" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Game 2, completed" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Game 3, available" }),
+  ).toBeVisible();
+  expect(browserRequests).toHaveLength(1);
+  expect(browserRequests[0]).toMatch(
+    /^http:\/\/localhost:3104\/api\/learn\/[A-Za-z0-9_-]+\/games\/[A-Za-z0-9_-]+\/package$/,
+  );
+  await expectNoGamePersistence(page);
+
+  await page.reload();
+  await expect(
+    page.getByRole("link", { name: "Game 2, available" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Game 3, locked")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Game 3/ })).toHaveCount(0);
 });
 
 test("shows safe unsupported and retryable package failures", async ({

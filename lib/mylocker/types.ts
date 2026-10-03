@@ -17,8 +17,34 @@ export type NormalizedMedia = Readonly<{
   viewedByLearnerIds: readonly string[];
 }>;
 
+export type NormalizedMapPosition = Readonly<{
+  finishedByLearnerIds: readonly string[];
+  gameId: string;
+  order: number;
+  viewedByLearnerIds: readonly string[];
+  xEnd: number;
+  xStart: number;
+  yEnd: number;
+  yStart: number;
+}>;
+
+export type NormalizedMapSection = Readonly<{
+  frontImageUrl: string;
+  height: number;
+  positions: readonly NormalizedMapPosition[];
+  width: number;
+}>;
+
+export type NormalizedGameMap = Readonly<{
+  color: string | null;
+  id: string;
+  sections: readonly NormalizedMapSection[];
+  title: string | null;
+}>;
+
 export type NormalizedCourse = Readonly<{
   audios: readonly NormalizedMedia[];
+  gameMap: NormalizedGameMap | null;
   id: string;
   name: string;
   videos: readonly NormalizedMedia[];

@@ -104,7 +104,25 @@ test("@visual fictional game states", async ({ page }, testInfo) => {
     "http://localhost:3104",
   );
   await page.getByRole("link", { name: /Nova/ }).click();
+  await expect(page.getByRole("link", { name: /Game map/ })).toBeVisible();
   await capture(page, "game-launchers.png");
+  await page.getByRole("link", { name: /Game map/ }).click();
+  await expect(page.getByRole("img", { name: /Map section/ })).toHaveCount(3);
+  await page
+    .getByRole("img", { name: /Map section/ })
+    .last()
+    .scrollIntoViewIfNeeded();
+  await expect
+    .poll(() =>
+      page
+        .getByRole("img", { name: /Map section/ })
+        .evaluateAll((images) =>
+          images.every((image) => (image as HTMLImageElement).naturalWidth > 0),
+        ),
+    )
+    .toBe(true);
+  await capture(page, "game-map.png");
+  await page.getByRole("link", { name: /Back to catalog/ }).click();
   await page
     .getByRole("link", { name: "Activity", exact: true })
     .first()

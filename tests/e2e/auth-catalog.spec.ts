@@ -257,13 +257,24 @@ test("shows the disabled activity state without requesting a package", async ({
   page,
 }, testInfo) => {
   const packageRequests: string[] = [];
+  const artworkRequests: string[] = [];
   page.on("request", (request) => {
     if (request.method() === "POST" && request.url().includes("/games/")) {
       packageRequests.push(request.url());
     }
+    if (request.url().includes("/game-map/sections/")) {
+      artworkRequests.push(request.url());
+    }
   });
   await signInSuccessfully(page, flowUser("game-disabled"), testInfo);
   await page.getByRole("link", { name: /Nova/ }).click();
+  await page.getByRole("link", { name: /Game map/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Orbit game map" }),
+  ).toBeVisible();
+  await expect(page.getByText(/artwork are disabled/)).toBeVisible();
+  await expect(page.getByRole("img")).toHaveCount(0);
+  await page.getByRole("link", { name: /Back to catalog/ }).click();
   await page
     .getByRole("link", { name: "Activity unavailable", exact: true })
     .first()
@@ -277,6 +288,7 @@ test("shows the disabled activity state without requesting a package", async ({
   );
 
   expect(packageRequests).toEqual([]);
+  expect(artworkRequests).toEqual([]);
 });
 
 test("handles empty, malformed, mismatched, and unavailable catalogs", async ({

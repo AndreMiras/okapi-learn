@@ -2,8 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import { isUpstreamError, UpstreamError } from "@/lib/mylocker/errors";
 import { normalizeAuthenticationResponse } from "@/lib/mylocker/normalize";
-import { normalizeServerHeldMediaUrl } from "@/lib/mylocker/url-policy";
-import { syntheticAuthenticationResponse } from "@/tests/fixtures/upstream";
+import {
+  normalizeServerHeldArtworkUrl,
+  normalizeServerHeldMediaUrl,
+} from "@/lib/mylocker/url-policy";
+import {
+  FICTIONAL_MAP_GAME_IDS,
+  syntheticAuthenticationResponse,
+  syntheticGameMap,
+} from "@/tests/fixtures/upstream";
 
 function response() {
   return structuredClone(syntheticAuthenticationResponse());
@@ -28,6 +35,65 @@ describe("normalizeAuthenticationResponse", () => {
     expect(normalized.courses[0]?.videos[0]?.viewedByLearnerIds).toEqual([
       "learner-nova",
     ]);
+    expect(normalized.courses[0]?.gameMap).toEqual({
+      color: "#24365f",
+      id: "map-orbit",
+      sections: [
+        {
+          frontImageUrl:
+            "https://images.example.test/maps/section-one-front.png",
+          height: 600,
+          positions: [
+            {
+              finishedByLearnerIds: ["learner-nova"],
+              gameId: FICTIONAL_MAP_GAME_IDS[0],
+              order: 1,
+              viewedByLearnerIds: ["learner-nova"],
+              xEnd: 190,
+              xStart: 110,
+              yEnd: 190,
+              yStart: 110,
+            },
+            {
+              finishedByLearnerIds: [],
+              gameId: FICTIONAL_MAP_GAME_IDS[1],
+              order: 2,
+              viewedByLearnerIds: [],
+              xEnd: 430,
+              xStart: 350,
+              yEnd: 340,
+              yStart: 260,
+            },
+          ],
+          width: 800,
+        },
+        {
+          frontImageUrl: "https://images.example.test/maps/empty-front.png",
+          height: 500,
+          positions: [],
+          width: 800,
+        },
+        {
+          frontImageUrl:
+            "https://images.example.test/maps/section-three-front.png",
+          height: 700,
+          positions: [
+            {
+              finishedByLearnerIds: [],
+              gameId: FICTIONAL_MAP_GAME_IDS[2],
+              order: 3,
+              viewedByLearnerIds: [],
+              xEnd: 540,
+              xStart: 440,
+              yEnd: 560,
+              yStart: 460,
+            },
+          ],
+          width: 800,
+        },
+      ],
+      title: "Orbit game map",
+    });
     const retained = JSON.stringify(normalized);
     for (const excluded of [
       "Surname",
@@ -35,6 +101,12 @@ describe("normalizeAuthenticationResponse", () => {
       "DateOfBirth",
       "UrlPhoto",
       "GameMap",
+      "GameSections",
+      "ignored-course-game",
+      "ignored-section-game",
+      "ignored-map",
+      "orbit-back.png",
+      "marker.png",
       "GameViewedBy",
       "game-progress-must-be-dropped",
       "ZipUrl",
@@ -43,6 +115,224 @@ describe("normalizeAuthenticationResponse", () => {
     ]) {
       expect(retained).not.toContain(excluded);
     }
+  });
+
+  it("accepts absent, null, empty, and nullable-presentation maps", () => {
+    const absent: any = response();
+    delete absent.Courses[0].GameMap;
+    expect(
+      normalizeAuthenticationResponse(absent).courses[0]?.gameMap,
+    ).toBeNull();
+
+    const nullable: any = response();
+    nullable.Courses[0].GameMap = null;
+    expect(
+      normalizeAuthenticationResponse(nullable).courses[0]?.gameMap,
+    ).toBeNull();
+
+    const empty: any = response();
+    empty.Courses[0].GameMap = {
+      ...syntheticGameMap(),
+      Color: null,
+      Sections: [],
+      Title: null,
+    };
+    expect(normalizeAuthenticationResponse(empty).courses[0]?.gameMap).toEqual({
+      color: null,
+      id: "map-orbit",
+      sections: [],
+      title: null,
+    });
+  });
+
+  it("filters map progress to learners in the same course", () => {
+    const input: any = response();
+    input.Students.push({
+      CourseId: "course-orbit",
+      Name: "Lyra",
+      StudentId: "learner-lyra",
+    });
+    const positions = normalizeAuthenticationResponse(
+      input,
+    ).courses[0]!.gameMap!.sections.flatMap(({ positions }) => positions);
+    expect(positions[0]).toMatchObject({
+      finishedByLearnerIds: ["learner-nova"],
+      viewedByLearnerIds: ["learner-nova", "learner-lyra"],
+    });
+    expect(positions[1]?.viewedByLearnerIds).toEqual(["learner-lyra"]);
+    expect(positions[2]).toMatchObject({
+      finishedByLearnerIds: ["learner-lyra"],
+      viewedByLearnerIds: ["learner-lyra"],
+    });
+  });
+
+  it.each([
+    ["map object", (input: any) => (input.Courses[0].GameMap = [])],
+    [
+      "sections array",
+      (input: any) => (input.Courses[0].GameMap.Sections = null),
+    ],
+    [
+      "section object",
+      (input: any) => (input.Courses[0].GameMap.Sections[0] = null),
+    ],
+    [
+      "positions array",
+      (input: any) => (input.Courses[0].GameMap.Sections[0].Positions = null),
+    ],
+    ["map ID", (input: any) => (input.Courses[0].GameMap.Id = "")],
+    [
+      "game ID",
+      (input: any) =>
+        (input.Courses[0].GameMap.Sections[0].Positions[0].GameId = ""),
+    ],
+    [
+      "duplicate game",
+      (input: any) =>
+        (input.Courses[0].GameMap.Sections[2].Positions[0].GameId =
+          FICTIONAL_MAP_GAME_IDS[0]),
+    ],
+    [
+      "duplicate order",
+      (input: any) =>
+        (input.Courses[0].GameMap.Sections[2].Positions[0].Orden = 1),
+    ],
+    [
+      "negative order",
+      (input: any) =>
+        (input.Courses[0].GameMap.Sections[0].Positions[0].Orden = -1),
+    ],
+    [
+      "noninteger order",
+      (input: any) =>
+        (input.Courses[0].GameMap.Sections[0].Positions[0].Orden = 1.5),
+    ],
+    [
+      "zero width",
+      (input: any) => (input.Courses[0].GameMap.Sections[0].Width = 0),
+    ],
+    [
+      "excessive height",
+      (input: any) => (input.Courses[0].GameMap.Sections[0].Height = 16_385),
+    ],
+    [
+      "noninteger dimension",
+      (input: any) => (input.Courses[0].GameMap.Sections[0].Width = 2.5),
+    ],
+    [
+      "negative coordinate",
+      (input: any) =>
+        (input.Courses[0].GameMap.Sections[0].Positions[0].XStart = -1),
+    ],
+    [
+      "reversed coordinate",
+      (input: any) =>
+        (input.Courses[0].GameMap.Sections[0].Positions[0].XEnd = 100),
+    ],
+    [
+      "out-of-bounds coordinate",
+      (input: any) =>
+        (input.Courses[0].GameMap.Sections[0].Positions[0].YEnd = 601),
+    ],
+    [
+      "nonfinite coordinate",
+      (input: any) =>
+        (input.Courses[0].GameMap.Sections[0].Positions[0].XStart =
+          Number.POSITIVE_INFINITY),
+    ],
+    [
+      "viewed list kind",
+      (input: any) =>
+        (input.Courses[0].GameMap.Sections[0].Positions[0].ViewedBy =
+          "learner-nova"),
+    ],
+    [
+      "finished list kind",
+      (input: any) =>
+        (input.Courses[0].GameMap.Sections[0].Positions[0].FinishedBy = null),
+    ],
+    [
+      "duplicate learner reference",
+      (input: any) =>
+        (input.Courses[0].GameMap.Sections[0].Positions[0].ViewedBy = [
+          "learner-nova",
+          "learner-nova",
+        ]),
+    ],
+    [
+      "invalid artwork URL",
+      (input: any) =>
+        (input.Courses[0].GameMap.Sections[0].FrontImage =
+          "http://images.example.test/map.png"),
+    ],
+  ])(
+    "rejects malformed %s without retaining a partial map",
+    (_name, mutate) => {
+      const input = response();
+      mutate(input);
+      expect(() => normalizeAuthenticationResponse(input)).toThrowError(
+        expect.objectContaining({ category: "invalid_response" }),
+      );
+    },
+  );
+
+  it("enforces map section, per-section position, total position, and learner-reference limits", () => {
+    const tooManySections: any = response();
+    tooManySections.Courses[0].GameMap.Sections = Array.from(
+      { length: 65 },
+      (_, index) => ({
+        ...syntheticGameMap().Sections[1],
+        FrontImage: `https://images.example.test/maps/empty-${index}.png`,
+      }),
+    );
+    expect(() => normalizeAuthenticationResponse(tooManySections)).toThrow();
+
+    const makePosition = (index: number) => ({
+      FinishedBy: [],
+      GameId: `bounded-game-${index}`,
+      Orden: index,
+      ViewedBy: [],
+      XEnd: 2,
+      XStart: 1,
+      YEnd: 2,
+      YStart: 1,
+    });
+    const tooManyInSection: any = response();
+    tooManyInSection.Courses[0].GameMap.Sections[0].Positions = Array.from(
+      { length: 17 },
+      (_, index) => makePosition(index),
+    );
+    expect(() => normalizeAuthenticationResponse(tooManyInSection)).toThrow();
+
+    const maximum: any = response();
+    maximum.Courses[0].GameMap.Sections = Array.from(
+      { length: 32 },
+      (_, sectionIndex) => ({
+        FrontImage: `https://images.example.test/maps/max-${sectionIndex}.png`,
+        Height: 2,
+        Positions: Array.from({ length: 16 }, (_, positionIndex) =>
+          makePosition(sectionIndex * 16 + positionIndex),
+        ),
+        Width: 2,
+      }),
+    );
+    expect(
+      normalizeAuthenticationResponse(maximum).courses[0]?.gameMap?.sections,
+    ).toHaveLength(32);
+
+    const tooManyTotal = structuredClone(maximum);
+    tooManyTotal.Courses[0].GameMap.Sections.push({
+      FrontImage: "https://images.example.test/maps/overflow.png",
+      Height: 2,
+      Positions: [makePosition(512)],
+      Width: 2,
+    });
+    expect(() => normalizeAuthenticationResponse(tooManyTotal)).toThrow();
+
+    const tooManyReferences: any = response();
+    tooManyReferences.Courses[0].GameMap.Sections[0].Positions[0].ViewedBy =
+      Array.from({ length: 17 }, (_, index) => `learner-${index}`);
+    expect(() => normalizeAuthenticationResponse(tooManyReferences)).toThrow();
   });
 
   it("retains bounded video relationships while audio relationships stay empty", () => {
@@ -216,6 +506,20 @@ describe("normalizeServerHeldMediaUrl", () => {
     "x".repeat(2_049),
   ])("rejects unsupported URL %s", (url) => {
     expect(() => normalizeServerHeldMediaUrl(url)).toThrow(UpstreamError);
+  });
+});
+
+describe("normalizeServerHeldArtworkUrl", () => {
+  it("requires a syntactically safe server-held artwork URL", () => {
+    expect(
+      normalizeServerHeldArtworkUrl(
+        "https://images.example.test/map.png?grant=fake",
+      ),
+    ).toBe("https://images.example.test/map.png?grant=fake");
+    expect(() => normalizeServerHeldArtworkUrl(null)).toThrow(UpstreamError);
+    expect(() =>
+      normalizeServerHeldArtworkUrl("https://user@images.example.test/map.png"),
+    ).toThrow(UpstreamError);
   });
 });
 

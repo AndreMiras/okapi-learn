@@ -9,7 +9,7 @@ import {
 import { GameRateLimiter } from "@/lib/security/game-rate-limit";
 import { hasValidMutationOrigin } from "@/lib/security/origin";
 import { readRequestSession } from "@/lib/session/request";
-import { selectVideoGame } from "@/lib/session/selectors";
+import { selectStandaloneGame } from "@/lib/session/selectors";
 
 export const runtime = "nodejs";
 
@@ -62,7 +62,7 @@ async function hasEmptyBody(request: Request): Promise<boolean> {
 
 export async function POST(
   request: Request,
-  context: RouteContext<"/api/learn/[learnerAlias]/media/[mediaAlias]/games/[gameAlias]/package">,
+  context: RouteContext<"/api/learn/[learnerAlias]/games/[gameAlias]/package">,
 ) {
   if (!hasValidMutationOrigin(request)) {
     return errorResponse("not_available", 403);
@@ -85,13 +85,8 @@ export async function POST(
     return errorResponse("not_available", 503);
   }
 
-  const { learnerAlias, mediaAlias, gameAlias } = await context.params;
-  const selection = selectVideoGame(
-    session,
-    learnerAlias,
-    mediaAlias,
-    gameAlias,
-  );
+  const { learnerAlias, gameAlias } = await context.params;
+  const selection = selectStandaloneGame(session, learnerAlias, gameAlias);
   if (!selection) return errorResponse("not_found", 404);
 
   globalThis.__okapiLearnGameLimiter ??= new GameRateLimiter({

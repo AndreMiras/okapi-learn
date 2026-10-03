@@ -26,6 +26,7 @@ export const englishMessages = {
   },
   games: {
     audioFailure: "Audio could not continue. Resume audio or exit this play.",
+    backToMap: "Back to game map",
     backToVideo: "Back to video",
     completeHeading: "Play complete",
     completeNotice:
@@ -42,10 +43,26 @@ export const englishMessages = {
     picture: "Picture",
     retry: "Try again",
     retryable:
-      "This activity is temporarily unavailable. Try again in a moment or return to the video.",
+      "This activity is temporarily unavailable. Try again in a moment or return to the catalog.",
     resumeAudio: "Resume audio",
     unavailable: "This activity is not available for this session.",
     unsupported: "This activity is not compatible with this version.",
+  },
+  gameMap: {
+    complete:
+      "All games currently shown on this map are complete in the initial catalog or this browser view.",
+    disabled:
+      "The game map is available in this catalog, but playback and artwork are disabled on this server.",
+    eyebrow: "Standalone games",
+    imageUnavailable: "Map artwork is unavailable for this section.",
+    introduction:
+      "Choose an available numbered game. Locked games open as you complete the path.",
+    progress: "Game status",
+    progressNote:
+      "Completions added here last only while this learner view remains open and are not sent to MyLocker.",
+    standaloneNotice:
+      "Completing this activity unlocks the next map game only in this browser view. It is not sent to MyLocker.",
+    title: "Game map",
   },
   shell: {
     about: "About",
